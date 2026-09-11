@@ -1,0 +1,25 @@
+{
+  "artifact_paths": {
+    "evidence": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/evidence/evidence.json",
+    "research_plan": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/planning/research-plan.json",
+    "source_snapshots": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/evidence/source-snapshots.json",
+    "sources": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/evidence/sources.json",
+    "task_runtime": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/graph/task-runtime.json",
+    "worker_traces": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/traces/worker.json"
+  },
+  "case_id": "P1-TASK75-ENTITY-BREAKPOINT-REPLAY-01",
+  "downstream_task_id": "task_c340a7baaedd01b793b2e55c",
+  "source_task_id": "task_5c0c3f7e0935872ce929372b",
+  "thresholds": {
+    "min_target_entity_leads": 3
+  },
+  "verified_entity": {
+    "aliases": [
+      "Salt Substitute and Stroke Study"
+    ],
+    "anchor_evidence_id": "ev_bd69d7af3a359722b7726409",
+    "canonical_label": "SSaSS",
+    "entity_id": "entity_breakpoint_ssass",
+    "entity_type": "eligible randomized controlled trial report or trial-level study"
+  }
+}

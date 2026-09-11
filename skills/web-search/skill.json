@@ -1,0 +1,21 @@
+{
+  "roles": ["worker"],
+  "profiles": ["general_research", "drb_evaluation"],
+  "tags": ["search", "web", "default"],
+  "skill_layer": "access",
+  "capability_granularity": "atomic",
+  "version": "1.0.0",
+  "result_kind": "search_hits",
+  "output_artifact_roles": ["source_document", "navigation_only"],
+  "fallback_skills": ["deepseek-web-search", "tavily-search", "duckduckgo-search", "wikipedia-search"],
+  "timeout_seconds": 35,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {"type": "string", "description": "Concise web search query"},
+      "max_results": {"type": "integer", "minimum": 1, "maximum": 20, "description": "Maximum results"}
+    },
+    "required": ["query"],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "roles": ["synthesizer"],
+  "profiles": ["general_research", "drb_evaluation"],
+  "tags": ["synthesis"],
+  "skill_layer": "orchestrator",
+  "capability_granularity": "strategic",
+  "version": "1.0.0",
+  "result_kind": "synthesis"
+}

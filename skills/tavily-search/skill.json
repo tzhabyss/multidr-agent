@@ -1,0 +1,33 @@
+{
+  "roles": ["worker"],
+  "profiles": ["general_research", "drb_evaluation"],
+  "tags": ["search", "web", "tavily"],
+  "skill_layer": "access",
+  "capability_granularity": "atomic",
+  "version": "1.0.0",
+  "result_kind": "search_hits",
+  "output_artifact_roles": ["source_document", "navigation_only"],
+  "enabled_env": "TAVILY_API_KEY",
+  "disabled_env": "DEEPRESEARCH_DISABLE_TAVILY",
+  "entrypoint": "deepresearch.retrieval:TavilySearchBackend",
+  "method": "search",
+  "timeout_seconds": 35,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {"type": "string", "description": "Concise web search query"},
+      "max_results": {"type": "integer", "minimum": 1, "maximum": 20, "description": "Maximum results"},
+      "search_depth": {"type": "string", "enum": ["ultra-fast", "fast", "basic", "advanced"], "description": "Search speed and precision"},
+      "topic": {"type": "string", "enum": ["general", "news", "finance"], "description": "Search topic"},
+      "time_range": {"type": "string", "enum": ["day", "week", "month", "year"], "description": "Optional recency window"},
+      "start_date": {"type": "string", "description": "Inclusive start date in YYYY-MM-DD form"},
+      "end_date": {"type": "string", "description": "Inclusive end date in YYYY-MM-DD form"},
+      "country": {"type": "string", "description": "Country bias for regional search"},
+      "include_domains": {"type": "array", "items": {"type": "string"}, "description": "Allowed source domains"},
+      "exclude_domains": {"type": "array", "items": {"type": "string"}, "description": "Excluded source domains"},
+      "chunks_per_source": {"type": "integer", "minimum": 1, "maximum": 5, "description": "Advanced search chunks per source"}
+    },
+    "required": ["query"],
+    "additionalProperties": false
+  }
+}

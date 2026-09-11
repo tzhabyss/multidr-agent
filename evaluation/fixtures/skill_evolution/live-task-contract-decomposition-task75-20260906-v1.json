@@ -1,0 +1,127 @@
+{
+  "campaign_id": "live-task-contract-decomposition-task75-20260906-v1",
+  "episode": {
+    "actions": [
+      {
+        "action": "generate_source_bounded_worker_contract",
+        "status": "failed"
+      }
+    ],
+    "candidate_policy": "automatic_candidate_allowed",
+    "capability_granularity": "atomic",
+    "confidence": 0.85,
+    "created_at": "2026-09-06T00:30:00+08:00",
+    "episode_id": "episode-live-task-contract-decomposition-task75-20260906-v1",
+    "evidence_refs": [
+      {
+        "artifact_path": "details/planning/task75-contract-overbreadth.json",
+        "record_id": "task75-contract-overbreadth-1",
+        "record_type": "failure_record"
+      }
+    ],
+    "local_context": {
+      "corrective_route": "decompose the full matrix into source-bounded partial extraction contracts",
+      "failure_type": "worker_contract_overbreadth",
+      "historical_analog": "task75",
+      "summary": "A Worker presented with a locally useful SSaSS source returned no claims when its contract required completing the entire 21-trial matrix."
+    },
+    "local_result": {
+      "observed_failure_or_low_gain": true,
+      "severity": "warning",
+      "skill_execution_failures": 1
+    },
+    "replay_spec": {
+      "artifact_paths": [
+        "details/planning/task75-contract-overbreadth.json"
+      ],
+      "external_writes_allowed": false,
+      "record_ids": [
+        "task75-contract-overbreadth-1"
+      ]
+    },
+    "run_id": "skill-evolution-live-task-contract-decomposition-task75-20260906-v1",
+    "runtime_layer": "strategy",
+    "scope": {
+      "type": "task",
+      "value": "source-bounded-worker-contract"
+    },
+    "target_skill_id": "research-planning",
+    "target_skill_version": "1.0.0",
+    "task_id": "task-live-task-contract-decomposition-task75",
+    "trigger_signal_ids": [
+      "signal-live-task-contract-decomposition-task75-20260906-v1"
+    ],
+    "trigger_types": [
+      "skill_execution_failure"
+    ]
+  },
+  "evidence_artifact": {
+    "content": [
+      {
+        "failure_id": "task75-contract-overbreadth-1",
+        "failure_type": "worker_contract_overbreadth",
+        "historical_task_id": "task_c340a7baaedd01b793b2e55c",
+        "observed_behavior": "The broad contract returned no claims for a source that directly described one eligible RCT."
+      }
+    ],
+    "relative_path": "details/planning/task75-contract-overbreadth.json"
+  },
+  "fixtures": [
+    {
+      "available_source": {
+        "source_id": "src_88aaf00c2f3708bcfa2924a2",
+        "source_status": "already_fetched",
+        "supported_field_keys": [
+          "trial_identity",
+          "country",
+          "design",
+          "salt_substitute_composition",
+          "control_salt_type"
+        ],
+        "text": "The Salt Substitute and Stroke Study (SSaSS) is an unblinded, cluster-randomized trial that included 20,995 participants from 600 rural Chinese villages. Participants were randomized by village to salt substitute or regular salt. The page states that regular salt was 100% sodium chloride and salt substitute was 75% sodium chloride and 25% potassium chloride."
+      },
+      "current_coverage": {
+        "discovered_entity_count": 0,
+        "expected_entity_count": 21,
+        "missing_field_keys": [
+          "trial_identity",
+          "country",
+          "design",
+          "salt_substitute_composition",
+          "control_salt_type",
+          "baseline_sbp",
+          "baseline_dbp",
+          "follow_up_duration"
+        ],
+        "scope_completeness_status": "open"
+      },
+      "fixture_id": "TASK75-CONTRACT-01-source-bounded-ssass",
+      "oracle": {
+        "allowed_completion_contracts": [
+          "extract_entities",
+          "fill_fields"
+        ],
+        "required_field_keys": [
+          "trial_identity",
+          "design"
+        ]
+      },
+      "research_scope": "Build a complete, deduplicated 21-trial salt-substitute RCT matrix with eight requested fields per trial. Preserve partial evidence and unresolved cells while the overall universe remains open."
+    }
+  ],
+  "invariants": [
+    "task_contract_is_structured",
+    "bounded_to_available_source",
+    "no_redundant_search",
+    "partial_results_allowed",
+    "unresolved_fields_allowed",
+    "local_completion_contract",
+    "required_local_fields_covered",
+    "unsupported_fields_not_requested",
+    "no_premature_entity_id_invention",
+    "objective_present"
+  ],
+  "scenario_type": "task_contract_decomposition",
+  "schema_version": "1.0",
+  "target_metric": "skill_execution_failures"
+}

@@ -1,0 +1,32 @@
+{
+  "artifact_paths": {
+    "research_plan": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/planning/research-plan.json",
+    "source_snapshots": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/evidence/source-snapshots.json",
+    "sources": "artifacts/evaluations/searchos-v12-task75-20260810-154848/samples/eval-task75-r1-106df4b7/details/evidence/sources.json"
+  },
+  "case_id": "P1-LIVE-TASK75-EXTRACTION-BREAKPOINT-01",
+  "context_after_chars": 1800,
+  "context_before_chars": 700,
+  "excerpt_marker": "Salt Substitute and Stroke Study",
+  "excerpt_occurrence_index": 2,
+  "run_id": "task75-extraction-breakpoint-20260906-v1",
+  "source_id": "src_88aaf00c2f3708bcfa2924a2",
+  "task_id": "task_c340a7baaedd01b793b2e55c",
+  "task_override": {
+    "completion_contract": "extract_entities",
+    "key_questions": [
+      "Which named randomized salt-substitute trial is directly described in this frozen excerpt?"
+    ],
+    "objective": "From this frozen task75 source excerpt, identify each explicitly named eligible randomized salt-substitute trial as a target entity. Extract only facts directly supported by the excerpt; do not attempt the full 21-trial inventory.",
+    "research_dimension": "Local eligible-RCT entity extraction at the Worker-to-ObservationDelta breakpoint",
+    "research_object": "Named salt-substitute randomized trial in the supplied excerpt",
+    "target_entity_ids": [],
+    "target_field_keys": [
+      "trial_identity",
+      "country",
+      "design",
+      "salt_substitute_composition"
+    ],
+    "verification_strategy": "Treat the passage as a local extraction unit. Emit an entity only when its trial name, randomized design, and salt-substitute intervention are stated in an exact quote."
+  }
+}

@@ -1,0 +1,6 @@
+{"case_id":"report-zmjjkk-profile","question":"ZmjjKK是谁？请研究其真实姓名、职业经历、主要赛事成绩与当前公开可核实状态。","mode":"research","constraints":{"required_dimensions":["身份与职业经历","主要赛事成绩","当前状态与信息局限"]}}
+{"case_id":"report-tikitaka-tactics","question":"Tiki-taka是什么技战术？请研究其核心原则、典型执行方式、代表球队，以及主要优势和克制方法。","mode":"research","constraints":{"required_dimensions":["战术定义与核心原则","代表球队与执行方式","优势、局限与克制方法"]}}
+{"case_id":"report-vibe-coding-concept","question":"Vibe Coding是什么概念？请研究术语来源、典型工作流、适用场景，以及代码质量、安全和维护风险。","mode":"research","constraints":{"required_dimensions":["术语来源与定义","工作流与适用场景","质量、安全与维护风险"]}}
+{"case_id":"report-rag-vs-long-context","question":"企业知识助手应如何在RAG与长上下文方案之间选择？请比较准确性与可追溯性、延迟与成本、知识更新、权限隐私和工程复杂度，并给出有条件的选型建议。","mode":"research","constraints":{"required_dimensions":["准确性、可追溯性与知识更新","延迟、成本与工程复杂度","权限隐私、风险与选型条件"]}}
+{"case_id":"report-eu-ai-act-compliance","question":"截至2026年7月，欧盟《人工智能法案》对通用人工智能模型和高风险AI系统分别有哪些主要义务？请研究实施时间表、责任主体和企业合规风险，并区分已经适用与尚未适用的要求。","mode":"research","constraints":{"locale":"zh-CN","date_boundary":"2026-07-20","required_dimensions":["通用人工智能模型义务","高风险AI系统义务","实施时间表与企业合规风险"]}}
+{"case_id":"report-glp1-evidence","question":"GLP-1类药物用于肥胖管理有哪些已公开的人体研究证据？请研究减重效果、常见与严重风险、停药后体重变化，以及适用边界；不得提供个体诊断或处方建议。","mode":"research","constraints":{"required_dimensions":["人体研究中的减重效果","常见与严重风险","停药后变化、适用边界与证据局限"]}}

@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-repeated-domain-20260904-v1",
+  "scenario_type": "source_selection",
+  "target_metric": "repeated_domain_rate",
+  "invariants": [
+    "valid_source_ids_only",
+    "selection_count_met",
+    "blocked_sources_avoided",
+    "authoritative_source_preserved"
+  ],
+  "episode": {
+    "episode_id": "episode-live-repeated-domain-20260904-v1",
+    "run_id": "skill-evolution-live-repeated-domain-20260904-v1",
+    "task_id": "task-live-source-diversity",
+    "target_skill_id": "web-search",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-repeated-domain-20260904-v1"],
+    "trigger_types": ["repeated_source_domain"],
+    "scope": {"type": "run", "value": "task-local source inventory"},
+    "local_context": {
+      "summary": "Fetched sources remained concentrated in one domain even though independent authoritative candidates were available.",
+      "repeated_domain_ratio": 0.75,
+      "corrective_route": "select an independent authoritative domain without dropping primary-source quality"
+    },
+    "actions": [
+      {"source_id": "prior-1", "domain": "arxiv.org"},
+      {"source_id": "prior-2", "domain": "arxiv.org"},
+      {"source_id": "prior-3", "domain": "arxiv.org"}
+    ],
+    "local_result": {
+      "repeated_domain_rate": 0.75,
+      "source_domain_diversity": 1,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/search/sensor-history.json",
+        "record_type": "sensor_snapshot",
+        "record_id": "domain-snapshot-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/search/sensor-history.json"],
+      "record_ids": ["domain-snapshot-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-04T23:20:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/search/sensor-history.json",
+    "content": [
+      {
+        "snapshot_id": "domain-snapshot-1",
+        "query_count": 8,
+        "fetched_source_count": 4,
+        "independent_domain_count": 1,
+        "repeated_domain_ratio": 0.75
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "LIVE-RD-01-research-paper-v1",
+      "prior_selected_domains": ["arxiv.org"],
+      "selection_count": 2,
+      "candidate_sources": [
+        {"source_id": "arxiv-abstract", "domain": "arxiv.org", "quality": "primary", "allowed": true, "description": "another arXiv abstract for the same claim"},
+        {"source_id": "github-repository", "domain": "github.com", "quality": "primary", "allowed": true, "description": "authors' official implementation repository"},
+        {"source_id": "university-page", "domain": "university.example", "quality": "authoritative", "allowed": true, "description": "authors' institutional project page"},
+        {"source_id": "private-index", "domain": "internal", "quality": "unknown", "allowed": false, "description": "private index"}
+      ]
+    },
+    {
+      "fixture_id": "LIVE-RD-02-health-guidance-v1",
+      "prior_selected_domains": ["who.int"],
+      "selection_count": 2,
+      "candidate_sources": [
+        {"source_id": "who-update", "domain": "who.int", "quality": "primary", "allowed": true, "description": "another WHO guidance page"},
+        {"source_id": "cdc-guidance", "domain": "cdc.gov", "quality": "primary", "allowed": true, "description": "CDC official guidance"},
+        {"source_id": "ministry-guidance", "domain": "health.gov.example", "quality": "authoritative", "allowed": true, "description": "national health ministry guidance"},
+        {"source_id": "news-summary", "domain": "news.example", "quality": "secondary", "allowed": true, "description": "news summary"}
+      ]
+    },
+    {
+      "fixture_id": "LIVE-RD-03-company-filing-v1",
+      "prior_selected_domains": ["sec.gov"],
+      "selection_count": 2,
+      "candidate_sources": [
+        {"source_id": "sec-filing", "domain": "sec.gov", "quality": "primary", "allowed": true, "description": "another SEC filing section"},
+        {"source_id": "investor-relations", "domain": "company.example", "quality": "primary", "allowed": true, "description": "company investor-relations release"},
+        {"source_id": "exchange-filing", "domain": "exchange.example", "quality": "authoritative", "allowed": true, "description": "official exchange disclosure"},
+        {"source_id": "aggregator", "domain": "aggregator.example", "quality": "secondary", "allowed": true, "description": "financial data aggregator"}
+      ]
+    }
+  ]
+}

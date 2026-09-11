@@ -1,0 +1,124 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-entity-discovery-20260905-v1",
+  "scenario_type": "entity_discovery",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_target_entities_found",
+    "no_unsupported_entities",
+    "aliases_not_split_or_merged",
+    "container_entities_excluded"
+  ],
+  "episode": {
+    "episode_id": "episode-live-entity-discovery-20260905-v1",
+    "run_id": "skill-evolution-live-entity-discovery-20260905-v1",
+    "task_id": "task-live-raw-container-expansion",
+    "target_skill_id": "research-planning",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "strategy",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-entity-discovery-failure-20260905-v1"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "raw-container-expansion"},
+    "local_context": {
+      "summary": "Historical enumeration runs consumed large budgets without converting review or roster containers into a complete normalized target-entity set.",
+      "failure_type": "container_expansion_and_entity_normalization",
+      "historical_analogs": ["task75", "task52", "task44"],
+      "corrective_route": "derive the literal target entity type, expand raw containers, normalize aliases, and preserve qualifying rows with missing fields"
+    },
+    "actions": [
+      {"action": "discover_entities_from_raw_source_excerpts", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 3,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/entity/raw-discovery-failure.json",
+        "record_type": "failure_record",
+        "record_id": "raw-entity-discovery-failure-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/entity/raw-discovery-failure.json"],
+      "record_ids": ["raw-entity-discovery-failure-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-05T00:15:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/entity/raw-discovery-failure.json",
+    "content": [
+      {
+        "failure_id": "raw-entity-discovery-failure-1",
+        "failure_type": "container_expansion_and_entity_normalization",
+        "historical_analogs": ["task75", "task52", "task44"],
+        "correction": "generate the target set from raw container evidence rather than treating source documents or only fully populated rows as entities"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "LIVE-ED-01-trials-from-review-v1",
+      "research_scope": "Enumerate every primary randomized salt-reduction or salt-substitution trial that the supplied review identifies as eligible. Each primary trial is one row. Do not create rows for the review, protocols, observational registries, or named substudies.",
+      "source_documents": [
+        {
+          "source_id": "review-table",
+          "title": "Evidence synthesis of dietary sodium intervention trials",
+          "text": "Eligible randomized trials were Changzhi (later called the Changzhi salt-substitute trial), TONE, DECIDE-Salt, the Salt Substitute and Stroke Study (SSaSS), and the China Rural Health Initiative Sodium Reduction Study (CRHI-SRS). The renal substudy of SSaSS and the DECIDE-Salt protocol are discussed separately but are not additional randomized trials. PURE-Sodium is an observational registry and was excluded."
+        }
+      ],
+      "gold_entities": [
+        {"entity_id": "trial-changzhi", "canonical_name": "Changzhi", "aliases": ["Changzhi trial", "Changzhi salt-substitute trial"]},
+        {"entity_id": "trial-tone", "canonical_name": "TONE", "aliases": ["Trial of Nonpharmacologic Interventions in the Elderly"]},
+        {"entity_id": "trial-decide", "canonical_name": "DECIDE-Salt", "aliases": ["DECIDE Salt"]},
+        {"entity_id": "trial-ssass", "canonical_name": "Salt Substitute and Stroke Study", "aliases": ["SSaSS", "Salt Substitute and Stroke Study SSaSS"]},
+        {"entity_id": "trial-crhi", "canonical_name": "China Rural Health Initiative Sodium Reduction Study", "aliases": ["CRHI-SRS", "China Rural Health Initiative"]}
+      ],
+      "container_names": ["Evidence synthesis of dietary sodium intervention trials", "review-table"]
+    },
+    {
+      "fixture_id": "LIVE-ED-02-landmark-studies-from-review-v1",
+      "research_scope": "Create one row for each original study explicitly designated as a landmark foundation of modern portfolio theory in the excerpt. Exclude the review itself, later replications, authors as separate entities, and methods that are not studies.",
+      "source_documents": [
+        {
+          "source_id": "history-review",
+          "title": "Seventy years of portfolio theory: a review",
+          "text": "This review treats three original works as the landmark foundations: Harry Markowitz's 1952 article 'Portfolio Selection'; James Tobin's 1958 article 'Liquidity Preference as Behavior Towards Risk'; and William F. Sharpe's 1964 article 'Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk'. The efficient frontier and separation theorem are concepts, not additional works. A 2019 replication of Markowitz and the present 2020 review are not counted as foundational originals."
+        }
+      ],
+      "gold_entities": [
+        {"entity_id": "study-markowitz-1952", "canonical_name": "Portfolio Selection", "aliases": ["Markowitz 1952", "Harry Markowitz 1952 Portfolio Selection"]},
+        {"entity_id": "study-tobin-1958", "canonical_name": "Liquidity Preference as Behavior Towards Risk", "aliases": ["Tobin 1958", "James Tobin 1958 Liquidity Preference as Behavior Towards Risk"]},
+        {"entity_id": "study-sharpe-1964", "canonical_name": "Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk", "aliases": ["Sharpe 1964", "William F Sharpe 1964 Capital Asset Prices"]}
+      ],
+      "container_names": ["Seventy years of portfolio theory: a review", "history-review"]
+    },
+    {
+      "fixture_id": "LIVE-ED-03-roster-with-nr-v1",
+      "research_scope": "Generate the fixed result-row set of metro systems that had begun public operation by 2019-12-31. Retain qualifying systems even if 2019 passenger-kilometres are unavailable. Exclude planned or trial-operation-after-cutoff systems, source documents, and operating agencies.",
+      "source_documents": [
+        {
+          "source_id": "official-roster",
+          "title": "Official urban rail roster, status at 31 December 2019",
+          "text": "Operational systems — Aster Metro: opened 2012; 2019 passenger-km 480 million. Boreal Urban Rail (also Boreal Metro): opened 2016; 2019 passenger-km NR. Cygnus Line: Phase 1 opened to the public on 30 December 2019; 2019 passenger-km 12 million. Planned / not operational at cutoff — Dorado Metro: trial operation began 10 January 2020. The Aster Transit Authority and Boreal Municipal Transport Bureau are operators, not metro systems."
+        },
+        {
+          "source_id": "news-ranking",
+          "title": "Two busiest systems in the region",
+          "text": "Aster and Cygnus led reported passenger-kilometres. Boreal was omitted because its value was not reported."
+        }
+      ],
+      "gold_entities": [
+        {"entity_id": "metro-aster", "canonical_name": "Aster Metro", "aliases": ["Aster"]},
+        {"entity_id": "metro-boreal", "canonical_name": "Boreal Urban Rail", "aliases": ["Boreal Metro", "Boreal"]},
+        {"entity_id": "metro-cygnus", "canonical_name": "Cygnus Line", "aliases": ["Cygnus"]}
+      ],
+      "container_names": ["Official urban rail roster, status at 31 December 2019", "official-roster", "Two busiest systems in the region", "news-ranking"]
+    }
+  ]
+}

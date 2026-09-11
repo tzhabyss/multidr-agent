@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-zero-gain-history-skillx-20260906-v1",
+  "scenario_type": "query_reformulation",
+  "target_metric": "zero_gain_searches",
+  "invariants": [
+    "valid_query_ids_only",
+    "selection_count_met",
+    "research_scope_preserved",
+    "evidence_gain_reached"
+  ],
+  "episode": {
+    "episode_id": "episode-live-zero-gain-history-skillx-20260906-v1",
+    "run_id": "skill-evolution-live-zero-gain-history-skillx-20260906-v1",
+    "task_id": "local-zero-gain-skillx-breakpoint",
+    "target_skill_id": "web-search",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-zero-gain-history-skillx-20260906-v1"],
+    "trigger_types": ["consecutive_no_evidence_gain"],
+    "scope": {"type": "task", "value": "SkillX benchmark evidence"},
+    "local_context": {
+      "summary": "Repeated exact-title and generic benchmark queries produced no usable evidence; the next query must change a concrete retrieval anchor rather than paraphrase the same search.",
+      "failure_type": "zero_gain_query_not_reformulated",
+      "corrective_route": "change to a distinctive benchmark/table anchor or source type while preserving the named-paper scope"
+    },
+    "actions": [
+      {"query": "SkillX paper arXiv"},
+      {"query": "SkillX benchmark results PDF"}
+    ],
+    "local_result": {
+      "zero_gain_searches": 2,
+      "evidence_gain": 0,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/search/zero-gain-skillx.json",
+        "record_type": "sensor_snapshot",
+        "record_id": "zero-gain-skillx-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/search/zero-gain-skillx.json"],
+      "record_ids": ["zero-gain-skillx-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-06T19:00:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/search/zero-gain-skillx.json",
+    "content": [
+      {
+        "record_id": "zero-gain-skillx-1",
+        "prior_query_count": 2,
+        "new_evidence_bindings": 0
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "ZERO-GAIN-04-skillx-anchor-switch",
+      "research_scope": "Find the official SkillX paper's reported SkillTreeBench benchmark scores.",
+      "prior_queries": [
+        "SkillX paper arXiv",
+        "SkillX benchmark results PDF"
+      ],
+      "candidate_queries": [
+        {
+          "query_id": "q1",
+          "query": "SkillX arXiv 2026 benchmark results",
+          "dimension": "same-title-source-paraphrase",
+          "outcome": "no_gain",
+          "in_scope": true
+        },
+        {
+          "query_id": "q2",
+          "query": "\"SkillX\" \"SkillTreeBench\" scores supplementary material",
+          "dimension": "distinctive-benchmark-and-document-anchor",
+          "outcome": "gain",
+          "in_scope": true
+        },
+        {
+          "query_id": "q3",
+          "query": "self evolving agent skills benchmarks",
+          "dimension": "broaden-topic",
+          "outcome": "no_gain",
+          "in_scope": false
+        }
+      ]
+    }
+  ]
+}

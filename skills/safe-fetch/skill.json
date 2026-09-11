@@ -1,0 +1,24 @@
+{
+  "roles": ["worker"],
+  "profiles": ["general_research", "drb_evaluation"],
+  "tags": ["fetch", "web"],
+  "skill_layer": "access",
+  "capability_granularity": "atomic",
+  "version": "1.0.0",
+  "result_kind": "fetched_document",
+  "output_artifact_roles": ["source_document"],
+  "failure_signatures": ["url_unreachable", "dynamic_fetch_failure", "access_challenge"],
+  "entrypoint": "deepresearch.retrieval:EvaluationWebFetcher",
+  "method": "fetch",
+  "timeout_seconds": 80,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "url": {"type": "string", "description": "Public HTTP or HTTPS URL"},
+      "title": {"type": "string", "description": "Optional search-result title used to resolve an academic source when the URL has no DOI"},
+      "render": {"type": "boolean", "description": "Force one bounded Scrapling browser render for a JavaScript page"}
+    },
+    "required": ["url"],
+    "additionalProperties": false
+  }
+}

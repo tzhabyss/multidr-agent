@@ -1,0 +1,627 @@
+# Project timestamps and CLI clock use China Standard Time by default.
+timezone: Asia/Shanghai
+
+# Operational telemetry never changes provider order or evolution promotion.
+governance:
+  enabled: true
+  monitor_interval_seconds: 10
+  max_records: 5000
+  max_cache_entries: 128
+  rewrite_enabled: true
+  rerank_enabled: true
+  # Explicit opt-in for each read-only tool. Fetch keeps its existing cache.
+  # Example policy (use the exact configured skill/tool id):
+  # policies:
+  #   my-read-only-search:
+  #     cache_read_only: true
+  #     cache_ttl_seconds: 60
+  #     circuit_enabled: true
+  #     failure_threshold: 3
+  #     recovery_seconds: 120
+  policies:
+    deepseek-web-search:
+      circuit_enabled: true
+      failure_threshold: 3
+      recovery_seconds: 120
+    anysearch-search:
+      circuit_enabled: true
+      failure_threshold: 3
+      recovery_seconds: 120
+
+# Completion limits are output-token allowances, not total run budgets.
+llm_output_tokens:
+  # Rubric-distilled evaluation plans can exceed the previous 8k ceiling.
+  # Large requirement matrices and DAGs must be allowed to close their JSON.
+  planner: 40000
+  worker_strategy: 4096
+  worker_reflection: 2048
+  worker_agent_loop: 2048
+  evidence_extraction_min: 256
+  # Evidence extraction needs room for several claims plus JSON syntax.
+  evidence_extraction_max: 8000
+  synthesizer_assessment: 8192
+  # Rich multi-table reports regularly exceed the old 8k completion ceiling.
+  report_writer: 30000
+  reviewer: 12000
+  extraction_context: 24000
+  clarifier: 1200
+  session_response: 1600
+  session_summary: 1200
+  episode_summary: 1400
+
+# Research depth and model quality are separate controls. Modes select a tier
+# per stage; tiers select an OpenAI-compatible provider and model deployment.
+default_mode: standard
+
+llm_providers:
+  deepseek_official:
+    api_key_env: OPENAI_API_KEY
+    base_url_env: OPENAI_BASE_URL
+    base_url: https://api.deepseek.com
+    # Bound every provider request, including Worker stages that do not use
+    # the stage-level failover policy. Explicit Router recovery owns retries.
+    # Keep the transport ceiling above every stage-attempt ceiling. Stage
+    # recovery below owns retries and failover; the HTTP client is only the
+    # final guard against an abandoned request.
+    request_timeout_seconds: 1500
+    max_retries: 0
+  openlux:
+    api_key_env: OPENLUX_API_KEY
+    base_url_env: OPENLUX_BASE_URL
+    base_url: https://api.openlux.ai
+    request_timeout_seconds: 1500
+    max_retries: 0
+  # Backward-compatible provider name used by older integrations/tests.  The
+  # active `default` model tier routes to DeepSeek official; this alias is retained so
+  # legacy callers can still inspect a default provider without changing the
+  # mixed-provider routing above.
+  default:
+    api_key_env: OPENAI_API_KEY
+    base_url_env: OPENAI_BASE_URL
+    base_url: https://api.deepseek.com
+    request_timeout_seconds: 1500
+    max_retries: 0
+
+# A tier-specific environment variable wins. When it is unset, OPENAI_MODEL is
+# used, so the existing single-model setup remains valid.
+model_tiers:
+  lite:
+    provider: deepseek_official
+    model_env: DEEPRESEARCH_LITE_MODEL
+    temperature: 0.1
+  default:
+    provider: deepseek_official
+    model_env: DEEPRESEARCH_DEFAULT_MODEL
+    temperature: 0.1
+  craft:
+    provider: deepseek_official
+    model_env: DEEPRESEARCH_CRAFT_MODEL
+    temperature: 0.1
+
+# Final answer stages retry transient/model-output failures on the selected
+# deployment, then fail over through the listed logical tiers. Tiers may point
+# at different providers, so the same policy also provides provider failover.
+llm_recovery:
+  clarifier:
+    # Clarification normally finishes in seconds. Hedge after 30 seconds so a
+    # stalled lite deployment cannot consume the research budget before the run
+    # has even started; the outer Clarifier deadline still bounds the whole race.
+    max_attempts_per_model: 1
+    backoff_initial_seconds: 0
+    backoff_multiplier: 2.0
+    backoff_max_seconds: 4.0
+    recovery_strategy: hedged
+    hedged_primary_tiers: [lite, default]
+    fast_failure_window_seconds: 10
+    fast_failure_retries: 1
+    hedge_after_seconds: 30
+    attempt_timeout_seconds: 90
+    fallback_attempt_timeout_seconds: 60
+    primary_result_grace_seconds: 5
+    fallback_tiers: [default, craft]
+  # Planner calls are part of the research loop too. A transient provider
+  # connection failure must not silently downgrade a gap-closing round to
+  # generic fallback tasks.
+  planner:
+    max_attempts_per_model: 1
+    backoff_initial_seconds: 0
+    backoff_multiplier: 2.0
+    backoff_max_seconds: 4.0
+    recovery_strategy: hedged
+    hedged_primary_tiers: [craft]
+    fast_failure_window_seconds: 10
+    fast_failure_retries: 1
+    hedge_after_seconds: 800
+    # The complete craft/default race is bounded at twenty minutes: craft may
+    # use the full 1200 seconds, while default receives 400 seconds after the
+    # 800-second hedge point. A valid craft result still wins immediately.
+    attempt_timeout_seconds: 1200
+    fallback_attempt_timeout_seconds: 400
+    # If default returns first, preserve the rest of craft's 20-minute window;
+    # a valid craft result wins, otherwise the valid default result is retained.
+    primary_result_grace_seconds: 400
+    fallback_tiers: [default]
+  worker_agent_loop:
+    # Large candidate inventories can legitimately need longer than the old
+    # 180-second provider ceiling. Retry once on the stronger tier instead of
+    # immediately degrading to provider-order selection.
+    max_attempts_per_model: 1
+    backoff_initial_seconds: 0.5
+    backoff_multiplier: 2.0
+    backoff_max_seconds: 4.0
+    attempt_timeout_seconds: 210
+    fallback_tiers: [craft]
+  synthesizer:
+    # Recent successful assessments complete well below three minutes. Keep a
+    # 420-second primary ceiling, but start default at 180 seconds so a stalled
+    # craft assessment cannot consume an unbounded sequence of tier retries.
+    max_attempts_per_model: 1
+    backoff_initial_seconds: 0
+    backoff_multiplier: 2.0
+    backoff_max_seconds: 4.0
+    recovery_strategy: hedged
+    hedged_primary_tiers: [craft]
+    fast_failure_window_seconds: 10
+    fast_failure_retries: 1
+    hedge_after_seconds: 180
+    attempt_timeout_seconds: 420
+    fallback_attempt_timeout_seconds: 240
+    primary_result_grace_seconds: 20
+    fallback_tiers: [default]
+  report_writer:
+    # A 30k structured report needs a matching wall-time allowance. Start
+    # default after 700 seconds without cancelling craft; either valid result
+    # wins, with the complete race bounded at 1200 seconds.
+    max_attempts_per_model: 1
+    # Provider/model errors should switch tiers immediately; repeating the
+    # same slow tier or sleeping here only reduces the fallback's usable slot.
+    backoff_initial_seconds: 0
+    backoff_multiplier: 2.0
+    backoff_max_seconds: 4.0
+    recovery_strategy: hedged
+    hedged_primary_tiers: [craft]
+    fast_failure_window_seconds: 10
+    fast_failure_retries: 1
+    hedge_after_seconds: 700
+    attempt_timeout_seconds: 1200
+    fallback_attempt_timeout_seconds: 500
+    primary_result_grace_seconds: 10
+    fallback_tiers: [default]
+  reviewer:
+    # Reviewer owns an independent slot. Empty, malformed, or schema-invalid
+    # output is retried once on craft, then retried through default fallback.
+    max_attempts_per_model: 2
+    backoff_initial_seconds: 0
+    backoff_multiplier: 2.0
+    backoff_max_seconds: 4.0
+    recovery_strategy: sequential
+    attempt_timeout_seconds: 120
+    fallback_tiers: [default]
+  judge:
+    max_attempts_per_model: 2
+    backoff_initial_seconds: 0.5
+    backoff_multiplier: 2.0
+    backoff_max_seconds: 4.0
+    attempt_timeout_seconds: 180
+    fallback_tiers: [craft, lite]
+
+research_modes:
+  quick:
+    stages:
+      clarifier: lite
+      memory: lite
+      planner: lite
+      worker_strategy: default
+      worker_agent_loop: default
+      evidence_extraction: lite
+      worker_reflection: default
+      synthesizer: default
+      report_writer: default
+      reviewer: default
+    max_rounds: 1
+    max_worker_iterations: 2
+    max_workers: 2
+    max_total_searches: 12
+    max_total_fetches: 20
+    max_wall_time_seconds: 300
+  standard:
+    stages:
+      clarifier: lite
+      memory: lite
+      planner: craft
+      worker_strategy: default
+      worker_agent_loop: default
+      evidence_extraction: default
+      worker_reflection: default
+      synthesizer: craft
+      report_writer: craft
+      reviewer: craft
+    max_rounds: 4
+    max_worker_iterations: 4
+    max_workers: 8
+    max_total_searches: 200
+    max_total_fetches: 336
+    max_wall_time_seconds: 1500
+  deep:
+    stages:
+      clarifier: default
+      memory: lite
+      planner: craft
+      worker_strategy: default
+      worker_agent_loop: default
+      evidence_extraction: default
+      worker_reflection: default
+      synthesizer: craft
+      report_writer: craft
+      reviewer: craft
+    max_rounds: 4
+    max_worker_iterations: 6
+    max_workers: 12
+    max_total_searches: 192
+    max_total_fetches: 288
+    max_wall_time_seconds: 1800
+  max:
+    stages:
+      clarifier: default
+      memory: default
+      planner: craft
+      worker_strategy: craft
+      worker_agent_loop: craft
+      evidence_extraction: craft
+      worker_reflection: craft
+      synthesizer: craft
+      report_writer: craft
+      reviewer: craft
+    max_rounds: 6
+    max_worker_iterations: 8
+    max_workers: 16
+    max_total_searches: 320
+    max_total_fetches: 480
+    max_wall_time_seconds: 3600
+
+# The control graph owns task dependencies, dynamic waves, and recovery. The
+# Worker ReAct loop remains responsible for local search and fetch decisions.
+graph_engineering:
+  enabled: true
+  # Codex-style progressive Skill loading. Set to legacy for an ablation that
+  # restores the previous full Skill-body injection behavior.
+  skill_mode: layered
+
+  # P0 ablation switch. `legacy` keeps the exact pre-change execution paths;
+  # `enhanced` enables the SearchOS-inspired P0 features below. Individual
+  # features can override the selected mode for controlled comparisons.
+  p0_ablation_mode: enhanced
+  p0_features:
+    frontier: inherit
+    failure_memory: inherit
+    append_only_evidence: inherit
+    # Focused windows can miss later statutory subsections after producing a
+    # few generic claims. Keep the implementation available for ablation, but
+    # use the full legacy extraction path by default.
+    focused_page_processing: legacy
+    enhanced_loop_sensor: inherit
+    extraction_middleware: inherit
+  wave_scheduler_enabled: true
+  typed_search_state_enabled: true
+  continuous_frontier_enabled: true
+  role_projection_v2_enabled: true
+  evidence_middleware_enabled: true
+  sensor_middleware_enabled: true
+  failure_memory_enabled: true
+  atomic_observation_commits_enabled: true
+  # The scheduler takes min(wave_size, mode.max_workers), so this ceiling lets
+  # every mode fill its configured Worker pool instead of hard-capping waves at 3.
+  wave_size: 16
+  max_plan_tasks: 32
+  max_dag_depth: 6
+  max_zero_gain_waves: 2
+  # Low-gain stopping is deliberately softer than the zero-gain gate. Four
+  # completed waves are a hard prerequisite; after that, two of the remaining
+  # three value signals may stop further research.
+  max_low_gain_waves: 2
+  min_waves_before_low_gain_stop: 4
+  low_gain_coverage_ratio: 0.75
+  low_gain_requirement_fraction: 0.05
+  low_gain_min_signals: 3
+  max_worker_wall_time_seconds: 900
+  worker_finalization_reserve_seconds: 180
+  worker_cleanup_reserve_seconds: 30
+  extraction_soft_drain_seconds: 90
+  research_finalization_reserve_seconds: 180
+  # A Worker fetches up to eight selected static pages concurrently. The
+  # shared coordinator caps process-wide concurrency at 16 and one domain at
+  # four, preventing one host failure from consuming an entire fetch window.
+  fetch_batch_size: 8
+  fetch_max_concurrency: 16
+  fetch_max_concurrency_per_domain: 4
+  fetch_prefetch_enabled: true
+  extraction_per_worker_concurrency: 2
+  extraction_max_concurrency: 12
+  candidate_selection_max_candidates: 50
+  candidate_selection_timeout_seconds: 180
+  min_worker_launch_seconds: 300
+  source_origin_first: true
+  task_dependencies_enabled: true
+  context_projection_enabled: true
+  deterministic_precheck_enabled: true
+  preserve_legacy_dispatch: true
+
+# Progressive disclosure policy. Orchestrator is an extension point and is
+# deliberately empty by default; it does not inject planning/synthesis Skill
+# bodies into those prompts.
+skill_layers:
+  orchestrator:
+    enabled: true
+    skills: []
+    injection: none
+  strategy:
+    enabled: true
+    skills: []
+    injection: selected
+  access:
+    enabled: true
+    skills: []
+    injection: tools
+
+# SkillX-Lite is an observation-only side path in phase one. Normal research
+# records traceable Evolution Signals and Episodes after delivery; evaluation
+# disables it through its profile override below.
+skill_evolution:
+  mode: "observe"
+  store_root: .runtime/skill-evolution
+  duplicate_query_threshold: 0.7
+  repeated_domain_threshold: 0.65
+  max_signals_per_run: 100
+  # CoEvoSkills-Lite is an explicit offline action. It never runs as part of a
+  # normal research request and cannot write to the Stable Skill directory.
+  candidate_generation:
+    enabled: false
+    generator_tier: default
+    verifier_tier: craft
+    max_generator_verifier_rounds: 2
+    max_similar_episodes: 3
+    max_capsule_chars: 24000
+    parent_skill_excerpt_chars: 8000
+    artifact_excerpt_chars: 4000
+    max_patch_operations: 3
+    max_patch_chars: 1800
+    generator_max_tokens: 3000
+    verifier_max_tokens: 2200
+    max_total_tokens_per_candidate: 60000
+  # Full CoEvoSkills adds a second, explicit loop: when a Candidate passes the
+  # surrogate verifier but fails project-local replay/oracle checks, record a
+  # VerifierGap and propose additive verifier assertions. New verifier suites
+  # remain inactive until explicit human approval.
+  verifier_coevolution:
+    enabled: false
+    generator_tier: craft
+    max_assertions_per_gap: 3
+    generator_max_tokens: 2200
+    max_total_tokens_per_gap: 30000
+    max_cost_regression_ratio: 0.2
+    require_human_activation: true
+    stable_skill_auto_promotion: false
+
+# Profiles change execution policy without changing the graph or model tiers.
+# general_research remains the default; evaluation selects drb_evaluation explicitly.
+agent_profiles:
+  general_research:
+    semantic_citation_gate: advisory
+    requirement_matrix: false
+    # Planner may create a small soft delivery contract only for an explicit
+    # multi-part/table/repeated-field request. Missing material remains usable.
+    adaptive_delivery_contract: true
+    reviewer_mode: on_demand
+    exact_url_blocklist: false
+    max_tool_calls_per_iteration: 4
+    min_observation_rounds: 1
+    preserve_rich_markdown: true
+    include_audit_links: true
+    allow_derived_analysis: true
+    # Coverage stays in the control plane. Writer receives public requirements
+    # and requested structure, not the internal coverage map.
+    writer_coverage_mode: compact
+    skill_evolution_mode: observe
+    skill_fallbacks:
+      web-search: [deepseek-web-search, anysearch-search]
+    skill_provider_modes:
+      web-search: fanout
+    mode_overrides:
+      standard:
+        max_workers: 8
+        max_total_searches: 200
+        max_total_fetches: 336
+        max_wall_time_seconds: 4080
+        research_soft_wall_time_seconds: 3780
+        writer_wall_time_seconds: 1220
+        reviewer_wall_time_seconds: 1020
+        writer_rewrite_wall_time_seconds: 1220
+        reviewer_recheck_wall_time_seconds: 500
+        artifact_reserve_seconds: 60
+        max_total_wall_time_seconds: 8100
+  drb_evaluation:
+    # Craft reviews the draft, Writer performs one full rewrite when requested,
+    # and Reviewer rechecks it for material semantic or delivery defects. Citation
+    # coverage itself is advisory: diagnostics remain visible, but a merely
+    # uncited passage does not block or downgrade an otherwise useful report.
+    semantic_citation_gate: advisory
+    requirement_matrix: true
+    adaptive_delivery_contract: true
+    reviewer_mode: always
+    exact_url_blocklist: true
+    enforce_candidate_quality_floor: true
+    max_tool_calls_per_iteration: 4
+    min_observation_rounds: 1
+    preserve_rich_markdown: true
+    include_audit_links: false
+    allow_derived_analysis: true
+    writer_coverage_mode: compact
+    # Benchmark runs must not accumulate learning state from held-out cases.
+    skill_evolution_mode: "off"
+    # Both profiles use the same recall-oriented provider fanout. Evaluation
+    # retains only its separate matrix, URL, and review policies.
+    skill_fallbacks:
+      web-search: [deepseek-web-search, anysearch-search]
+    skill_provider_modes:
+      web-search: fanout
+    # Shared high-recall Standard capacity. Search is counted in logical queries;
+    # each query still fans out to both configured providers. New research stops
+    # at 63 minutes and in-flight work may drain until the 68-minute hard cutoff.
+    # Initial Writer and requested rewrite each receive 1220 seconds. Reviewer
+    # retains an independent 1020-second slot and recheck receives 500 seconds.
+    mode_overrides:
+      standard:
+        max_workers: 8
+        max_total_searches: 200
+        max_total_fetches: 336
+        max_wall_time_seconds: 4080
+        research_soft_wall_time_seconds: 3780
+        writer_wall_time_seconds: 1220
+        reviewer_wall_time_seconds: 1020
+        writer_rewrite_wall_time_seconds: 1220
+        reviewer_recheck_wall_time_seconds: 500
+        artifact_reserve_seconds: 60
+        max_total_wall_time_seconds: 8100
+
+# Tool capability is role-based, never inferred from lite/default/craft.
+tool_permissions:
+  executable_roles:
+    - worker
+
+memory:
+  enabled: true
+  # Fixed namespace for v1; this is not exposed as a user-facing project selector.
+  project_id: deepresearch-default
+  default_user_id: local-user
+  # Set to redis and provide DEEPRESEARCH_REDIS_URL for distributed sessions.
+  session_backend: local
+  redis_url_env: DEEPRESEARCH_REDIS_URL
+  local_db_path: .runtime/memory.sqlite
+  session_ttl_hours: 168
+  recent_turns: 8
+  # 100k working context: durable compaction starts at the 60% soft boundary.
+  context_window_tokens: 100000
+  summary_trigger_tokens: 60000
+  compaction_light_ratio: 0.60
+  compaction_query_ratio: 0.75
+  compaction_summary_ratio: 0.88
+  compaction_emergency_ratio: 0.95
+  # Fully self-hosted long-term memory: no Mem0 client or hosted memory key.
+  automatic_capture_enabled: true
+  fact_top_k_clarifier: 3
+  fact_top_k_planner: 5
+  fact_confidence_threshold: 0.75
+  capture_batch_size: 20
+  # Local multilingual semantic embeddings. Install the memory dependency;
+  # when unavailable the service emits a warning and uses a marked hash fallback.
+  embedding_provider: sentence_transformers
+  embedding_model: intfloat/multilingual-e5-small
+  embedding_dimensions: 384
+  embedding_query_prefix: "query: "
+  embedding_document_prefix: "passage: "
+  embedding_fallback_enabled: true
+  semantic_candidate_limit: 50
+  lexical_candidate_limit: 50
+  semantic_dedup_threshold: 0.92
+  segment_turns: 8
+  rolling_segment_limit: 12
+  hot_message_max_chars: 6000
+  clarifier_memory_budget_tokens: 6000
+  planner_memory_budget_tokens: 16000
+  worker_memory_budget_tokens: 8000
+  projection_candidate_multiplier: 4
+  projection_sentence_limit: 8
+  mandatory_fact_limit: 20
+  max_facts_per_scope: 500
+  default_fact_valid_days: 365
+  lifecycle_enabled: true
+
+# Bundled read-only research MCP servers require both mcp.enabled=true and
+# DEEPRESEARCH_ENABLE_RESEARCH_MCP=1. Their tools still use an explicit
+# role/profile allowlist and enter the ordinary Skill Registry.
+mcp:
+  enabled: true
+  servers:
+    deepseek-web-search:
+      transport: stdio
+      # Use npx.cmd on Windows so PowerShell execution policy does not block npx.ps1.
+      command: npx.cmd
+      args: [-y, websearch-deepseek]
+      env:
+        DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+        WEBSEARCH_MODEL: deepseek-v4-flash
+        WEBSEARCH_THINKING: disabled
+        WEBSEARCH_MAX_TOKENS: "4096"
+      connect_timeout_seconds: 60
+      tools:
+        web_search:
+          skill_id: deepseek-web-search
+          roles: [worker]
+          profiles: [general_research, drb_evaluation]
+          result_kind: search_hits
+          tags: [web, deepseek, scout]
+          timeout_seconds: 120
+    anysearch:
+      transport: streamable_http
+      url: https://api.anysearch.com/mcp
+      headers:
+        Authorization: Bearer ${ANYSEARCH_API_KEY}
+        X-Anysearch-Client: deepresearch-agent/1.0
+      connect_timeout_seconds: 30
+      tools:
+        search:
+          skill_id: anysearch-search
+          description: Search the live web through AnySearch. Use one concise query and return auditable source candidates; fetched page text remains the evidence boundary.
+          roles: [worker]
+          profiles: [general_research, drb_evaluation]
+          result_kind: search_hits
+          tags: [web, anysearch, scout]
+          timeout_seconds: 45
+    paper-search:
+      transport: stdio
+      command: python
+      args: [-m, deepresearch.mcp_servers.paper_search]
+      enabled_env: DEEPRESEARCH_ENABLE_RESEARCH_MCP
+      tools:
+        search_arxiv:
+          skill_id: arxiv-search
+          roles: [worker]
+          profiles: [general_research, drb_evaluation]
+          result_kind: search_hits
+          tags: [academic]
+          timeout_seconds: 30
+        search_google_scholar:
+          skill_id: scholar-search
+          roles: [worker]
+          profiles: [general_research, drb_evaluation]
+          result_kind: search_hits
+          tags: [academic]
+          timeout_seconds: 30
+        search_openalex:
+          skill_id: openalex-search
+          description: Search OpenAlex and return paper metadata, abstracts, DOI, and open-access locations.
+          roles: [worker]
+          profiles: [general_research, drb_evaluation]
+          result_kind: search_hits
+          tags: [academic, openalex]
+          timeout_seconds: 30
+    github:
+      transport: stdio
+      command: python
+      args: [-m, deepresearch.mcp_servers.github_search]
+      enabled_env: DEEPRESEARCH_ENABLE_RESEARCH_MCP
+      tools:
+        search_repositories:
+          skill_id: github-repository-search
+          roles: [worker]
+          profiles: [general_research, drb_evaluation]
+          result_kind: search_hits
+          tags: [github]
+          timeout_seconds: 30
+        search_code:
+          skill_id: github-code-search
+          roles: [worker]
+          profiles: [general_research, drb_evaluation]
+          result_kind: search_hits
+          tags: [github]
+          timeout_seconds: 30

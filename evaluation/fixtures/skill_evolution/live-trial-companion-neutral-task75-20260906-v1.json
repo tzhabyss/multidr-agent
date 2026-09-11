@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-trial-companion-neutral-task75-20260906-v1",
+  "scenario_type": "entity_discovery_neutral",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_target_entities_found",
+    "no_unsupported_entities",
+    "aliases_not_split_or_merged",
+    "container_entities_excluded",
+    "entity_sources_valid",
+    "scope_completeness_calibrated"
+  ],
+  "episode": {
+    "episode_id": "episode-live-trial-companion-neutral-task75-20260906-v1",
+    "run_id": "skill-evolution-live-trial-companion-neutral-task75-20260906-v1",
+    "task_id": "task75-local-trial-companion-breakpoint",
+    "target_skill_id": "research-planning",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "strategy",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-trial-companion-neutral-task75-20260906-v1"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "trial-versus-report-identity"},
+    "local_context": {
+      "summary": "A trial corpus contains a protocol, primary report, and differently titled companion analysis linked by acronym and registration ID; the result set requires trial-level rows.",
+      "failure_type": "trial_report_identity_confusion",
+      "corrective_route": "use explicit trial identifiers and source statements to keep reports as evidence for one trial-level entity rather than separate rows"
+    },
+    "actions": [
+      {"action": "materialize_trial_level_entities_from_reports", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 1,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/entity/trial-companion-snapshot.json",
+        "record_type": "failure_record",
+        "record_id": "task75-trial-companion-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/entity/trial-companion-snapshot.json"],
+      "record_ids": ["task75-trial-companion-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-06T17:30:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/entity/trial-companion-snapshot.json",
+    "content": [
+      {
+        "record_id": "task75-trial-companion-1",
+        "candidate_problem": "trial_report_identity_confusion"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "TASK75-TRIAL-REPORT-01-ssass-companions",
+      "research_scope": "Create one result row per unique randomized salt-substitution trial represented in the supplied corpus, and report whether this supplied corpus is sufficient to enumerate that trial set.",
+      "source_documents": [
+        {
+          "source_id": "corpus-index",
+          "title": "Salt-substitution corpus inventory",
+          "text": "This closed corpus contains every publication in the collection: one protocol, one primary cardiovascular outcomes article, and one prespecified renal outcomes article. All three records carry trial registration ChiCTR-TRC-12002212; no other randomized trial is represented in this corpus."
+        },
+        {
+          "source_id": "protocol",
+          "title": "Rationale and design of the Salt Substitute and Stroke Study",
+          "text": "The Salt Substitute and Stroke Study (SSaSS), registration ChiCTR-TRC-12002212, is an unblinded cluster-randomized trial in 600 rural Chinese villages."
+        },
+        {
+          "source_id": "primary-report",
+          "title": "Effect of Salt Substitution on Cardiovascular Events and Death",
+          "text": "In SSaSS (ChiCTR-TRC-12002212), 20,995 participants were randomized by village. This article reports the prespecified primary cardiovascular outcomes."
+        },
+        {
+          "source_id": "renal-report",
+          "title": "Potassium-Enriched Salt and Serious Renal Events in Rural China",
+          "text": "This prespecified renal analysis uses the same randomized participants and allocation from SSaSS, trial registration ChiCTR-TRC-12002212; it did not recruit or randomize a separate cohort."
+        }
+      ],
+      "gold_entities": [
+        {
+          "entity_id": "trial-ssass",
+          "canonical_name": "Salt Substitute and Stroke Study",
+          "aliases": ["SSaSS", "ChiCTR-TRC-12002212"],
+          "source_ids": ["protocol", "primary-report", "renal-report"]
+        }
+      ],
+      "container_names": ["Salt-substitution corpus inventory", "corpus-index"],
+      "expected_completeness_statuses": ["audited_complete"]
+    }
+  ]
+}

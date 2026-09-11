@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-source-family-failure-20260904-v1",
+  "scenario_type": "route_selection",
+  "target_metric": "source_family_failures",
+  "invariants": [
+    "valid_route_ids_only",
+    "blocked_routes_avoided",
+    "successful_route_reached"
+  ],
+  "episode": {
+    "episode_id": "episode-live-source-family-failure-20260904-v1",
+    "run_id": "skill-evolution-live-source-family-failure-20260904-v1",
+    "task_id": "task-live-source-family-recovery",
+    "target_skill_id": "safe-fetch",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-source-family-failure-20260904-v1"],
+    "trigger_types": ["source_family_repeated_failure"],
+    "scope": {"type": "source_family", "value": "publisher.example"},
+    "local_context": {
+      "summary": "One source family failed through more than one allowed access route while an independent open copy remained available.",
+      "failure_type": "source_family_repeated_failure",
+      "source_family": "publisher.example",
+      "recurrence_count": 2,
+      "corrective_route": "switch to an already available independent source family"
+    },
+    "actions": [
+      {"route": "direct", "source_family": "publisher.example", "status": "failed"},
+      {"route": "dynamic", "source_family": "publisher.example", "status": "failed"}
+    ],
+    "local_result": {
+      "source_family_failures": 2,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/search/failure-memory.json",
+        "record_type": "failure_record",
+        "record_id": "failure-family-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/search/failure-memory.json"],
+      "record_ids": ["failure-family-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-04T23:10:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/search/failure-memory.json",
+    "content": [
+      {
+        "failure_id": "failure-family-1",
+        "failure_type": "source_family_repeated_failure",
+        "scope_type": "source_family",
+        "scope_value": "publisher.example",
+        "recurrence_count": 2,
+        "failed_routes": ["direct", "dynamic"],
+        "correction": "switch source family before trying another route from publisher.example"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "LIVE-SF-01-publisher-family-v1",
+      "prior_failed_source_families": ["publisher.example"],
+      "available_routes": [
+        {"route_id": "publisher-reader", "route_type": "reader_fallback", "source_family": "publisher.example", "allowed": true, "quality": "primary", "outcome": "failure"},
+        {"route_id": "repository-copy", "route_type": "open_version", "source_family": "repository.example", "allowed": true, "quality": "authoritative-copy", "outcome": "success"},
+        {"route_id": "private-cache", "route_type": "private_network", "source_family": "internal", "allowed": false, "quality": "unknown", "outcome": "success"}
+      ]
+    },
+    {
+      "fixture_id": "LIVE-SF-02-academic-family-v1",
+      "prior_failed_source_families": ["arxiv.org"],
+      "available_routes": [
+        {"route_id": "arxiv-pdf", "route_type": "pdf", "source_family": "arxiv.org", "allowed": true, "quality": "primary", "outcome": "failure"},
+        {"route_id": "institutional-copy", "route_type": "open_version", "source_family": "university.example", "allowed": true, "quality": "authoritative-copy", "outcome": "success"},
+        {"route_id": "metadata-only", "route_type": "academic_metadata", "source_family": "metadata.example", "allowed": true, "quality": "metadata-only", "outcome": "success"}
+      ]
+    },
+    {
+      "fixture_id": "LIVE-SF-03-government-family-v1",
+      "prior_failed_source_families": ["agency.gov"],
+      "available_routes": [
+        {"route_id": "agency-reader", "route_type": "reader_fallback", "source_family": "agency.gov", "allowed": true, "quality": "primary", "outcome": "failure"},
+        {"route_id": "official-archive", "route_type": "archived_official_copy", "source_family": "archive.gov", "allowed": true, "quality": "authoritative-copy", "outcome": "success"},
+        {"route_id": "blog-summary", "route_type": "secondary_summary", "source_family": "blog.example", "allowed": true, "quality": "secondary", "outcome": "success"}
+      ]
+    }
+  ]
+}

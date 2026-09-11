@@ -1,0 +1,9 @@
+{
+  "roles": ["worker"],
+  "profiles": ["general_research", "drb_evaluation"],
+  "tags": ["research-loop"],
+  "skill_layer": "strategy",
+  "capability_granularity": "strategic",
+  "version": "1.0.0",
+  "result_kind": "worker_observation"
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "case_id": "task40-contradictory-statements-gap",
+  "attempts": 3,
+  "payload": {
+    "question": "Analyze China's end-2014 announcement that use of organs from executed prisoners would cease on January 1, 2015. Explain its true meaning, relationship with previous laws, why critics called it a semantic trick, what seemingly contradictory statements Huang Jiefu made at the time, and the reactions of the WMA and The Transplantation Society through 2015.",
+    "locale": "en",
+    "current_date": "2026-09-06",
+    "citation_policy": "advisory",
+    "required_dimensions": [],
+    "requirements": [
+      {"requirement_id": "req-021", "text": "Explain the true meaning of the cessation statement.", "kind": "analysis", "target_section": "In-depth Analysis", "required_elements": ["interpretation", "evidence"], "importance": "required", "display_order": 21},
+      {"requirement_id": "req-022", "text": "Explain its relationship with previous laws and regulations.", "kind": "analysis", "target_section": "In-depth Analysis", "required_elements": ["comparison", "legal context"], "importance": "required", "display_order": 22},
+      {"requirement_id": "req-023", "text": "Explain why international voices considered it a semantic trick.", "kind": "analysis", "target_section": "In-depth Analysis", "required_elements": ["reasons", "evidence"], "importance": "required", "display_order": 23},
+      {"requirement_id": "req-024", "text": "Identify seemingly contradictory statements made by Huang Jiefu at the time.", "kind": "fact", "target_section": "In-depth Analysis", "required_elements": ["statements", "dates"], "importance": "required", "display_order": 24},
+      {"requirement_id": "req-025", "text": "Summarize the WMA stance through 2015.", "kind": "fact", "target_section": "International Reactions", "required_elements": ["stance", "date"], "importance": "required", "display_order": 25},
+      {"requirement_id": "req-026", "text": "Summarize The Transplantation Society stance through 2015.", "kind": "fact", "target_section": "International Reactions", "required_elements": ["stance", "date"], "importance": "required", "display_order": 26}
+    ],
+    "user_constraints": ["time boundary: 2015-12-31"],
+    "claim_ledger": [
+      {"claim_id": "clm-law", "text": "The 2014 announcement was a policy declaration rather than new legislation; the 1984 rules were not formally repealed."},
+      {"claim_id": "clm-semantic", "text": "Critics argued prisoner organs could be relabeled as voluntary citizen donations inside the unified allocation system."},
+      {"claim_id": "clm-huang-1", "text": "On December 4, 2014 Huang said prisoners remained qualified candidates for donation."},
+      {"claim_id": "clm-huang-2", "text": "In January 2015 Huang said prisoners retained a right to donate and could atone for their crimes."},
+      {"claim_id": "clm-wma", "text": "The WMA rejected procurement from prisoners because consent in custody cannot be fully voluntary."},
+      {"claim_id": "clm-tts", "text": "The Transplantation Society welcomed reform but demanded transparency and an end to prisoner organ sourcing."}
+    ],
+    "draft": {
+      "sections": [
+        {
+          "title": "In-depth Analysis",
+          "paragraphs": [
+            {"text": "The December 2014 announcement was a policy declaration rather than a new law. Because the 1984 rules were not formally repealed, legal ambiguity remained.", "claim_ids": ["clm-law"], "requirement_ids": ["req-021", "req-022"]},
+            {"text": "Critics called the change a semantic trick because organs from prisoners could be relabeled as voluntary citizen donations within the unified system.", "claim_ids": ["clm-semantic"], "requirement_ids": ["req-023"]}
+          ],
+          "tables": []
+        },
+        {
+          "title": "International Reactions",
+          "paragraphs": [
+            {"text": "The WMA rejected procurement from prisoners because custodial consent cannot be fully voluntary. The Transplantation Society welcomed reform but continued to demand transparency and an end to prisoner organ sourcing.", "claim_ids": ["clm-wma", "clm-tts"], "requirement_ids": ["req-025", "req-026"]}
+          ],
+          "tables": []
+        }
+      ],
+      "missing_dimensions": []
+    },
+    "evaluation_profile": {"profile_id": "drb_evaluation"},
+    "delivery_contract": {"soft": false, "preserve_rich_markdown": true, "allow_derived_analysis": true, "missing_material_is_non_blocking": true}
+  },
+  "oracle": {
+    "expected_decision": "repair",
+    "accepted_issue_types": ["completeness", "analysis_depth", "reasoning_gap"],
+    "message_must_contain_any": ["contradict", "Huang", "req-024", "statement"]
+  }
+}

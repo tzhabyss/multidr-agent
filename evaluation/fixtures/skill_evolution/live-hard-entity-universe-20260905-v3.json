@@ -1,0 +1,125 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-hard-entity-universe-20260905-v3",
+  "scenario_type": "entity_discovery",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_target_entities_found",
+    "no_unsupported_entities",
+    "aliases_not_split_or_merged",
+    "container_entities_excluded",
+    "entity_sources_valid",
+    "scope_completeness_calibrated"
+  ],
+  "episode": {
+    "episode_id": "episode-live-hard-entity-universe-20260905-v3",
+    "run_id": "skill-evolution-live-hard-entity-universe-20260905-v3",
+    "task_id": "task-live-hard-entity-universe-v3",
+    "target_skill_id": "research-planning",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "strategy",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-hard-entity-universe-20260905-v3"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "large-multi-document-entity-universe"},
+    "local_context": {
+      "summary": "Historical task75/task52 runs failed to convert container documents into a complete, normalized, source-bound entity inventory despite large search and fetch budgets.",
+      "failure_type": "large_entity_universe_recall_and_membership_provenance",
+      "historical_analogs": ["task75", "task52"],
+      "corrective_route": "separate candidate mentions from direct eligibility evidence, merge cross-document aliases, exclude nested/non-random records, and preserve an unresolved scope boundary"
+    },
+    "actions": [
+      {"action": "discover_normalize_and_bind_large_entity_universe", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 4,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/entity/hard-entity-universe-failure-v3.json",
+        "record_type": "failure_record",
+        "record_id": "hard-entity-universe-failure-v3"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/entity/hard-entity-universe-failure-v3.json"],
+      "record_ids": ["hard-entity-universe-failure-v3"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-05T23:30:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/entity/hard-entity-universe-failure-v3.json",
+    "content": [
+      {
+        "failure_id": "hard-entity-universe-failure-v3",
+        "failure_type": "large_entity_universe_recall_and_membership_provenance",
+        "historical_analogs": ["task75", "task52"]
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "HARD-ENUM-02-twelve-workplace-trials-v1",
+      "research_scope": "Create one result row for every primary randomized workplace-break intervention trial that the supplied materials establish as eligible. Candidate rosters alone do not establish eligibility. Merge aliases across documents; exclude reviews, observational cohorts, non-randomized feasibility projects, protocols for studies that never started, and named substudies. For every included entity, identify at least one supplied source that directly establishes eligibility. Also report the current completeness status of the requested trial universe.",
+      "source_documents": [
+        {
+          "source_id": "candidate-index",
+          "title": "Workplace-break evidence index",
+          "text": "The index mixes eligible trials, screened-out projects, protocols, and related reports. Candidate labels are AWB-14; BBT; Cedar-Move; DAO; Elm SitLess; FSAW; Grove Interrupt; HMM; Iris Microbreak; JSS; KAD; Lumen BreakCycle; Mica-REST; Northstar Office Walk; and Oak Flex. Aster-Plus and Cedar-Move Fatigue Analysis are follow-up reports, not necessarily new trials. Two later candidate reports appear only in Supplement S9, which is unavailable in the supplied archive. Appearance in this index is not an eligibility decision."
+        },
+        {
+          "source_id": "eligibility-round-1",
+          "title": "Eligibility adjudication, records 1-7",
+          "text": "Five primary randomized interventions met all criteria: Aster WorkBreak 2014, registered as AWB-14; the Birch Breaks Trial, registered as BBT; Cedar-Move; Dune Active Office, formerly labelled DAO; and Elm SitLess. Dune was initially miscoded as non-random but its cluster allocation was confirmed. Aster-Plus is a secondary follow-up of Aster WorkBreak 2014. Cedar-Move Fatigue Analysis is nested within Cedar-Move. Mica-REST is an observational cohort."
+        },
+        {
+          "source_id": "eligibility-round-2",
+          "title": "Eligibility adjudication, records 8-14",
+          "text": "Four additional primary randomized interventions were accepted: Flint Steps-at-Work (FSAW), Grove Interrupt Trial (GIT; also indexed as Grove Interrupt), Harbor MoveMore (HMM), and Iris Microbreak (IMB). Grove Biomarker Study is a nested substudy of GIT and must not be counted separately. Northstar Office Walk used manager-selected allocation and was excluded as non-randomized. Echo Standing remained a protocol only; enrollment never began."
+        },
+        {
+          "source_id": "eligibility-round-3",
+          "title": "Eligibility adjudication corrigendum",
+          "text": "The corrigendum accepts three more primary randomized interventions: Juniper Stand-and-Stretch (JSS), Kestrel Active Desk (KAD), and Lumen BreakCycle (LBC). The earlier label Kestrel Desk Experiment refers to Kestrel Active Desk, not a separate trial. Oak Flex was a single-site feasibility project without random allocation and remains excluded. No eligibility decision was made for the two unnamed reports in missing Supplement S9."
+        },
+        {
+          "source_id": "registry-crosswalk",
+          "title": "Trial acronym and report crosswalk",
+          "text": "AWB-14 maps to Aster WorkBreak 2014; BBT maps to Birch Breaks Trial; DAO maps to Dune Active Office; FSAW maps to Flint Steps-at-Work; GIT maps to Grove Interrupt Trial; HMM maps to Harbor MoveMore; IMB maps to Iris Microbreak; JSS maps to Juniper Stand-and-Stretch; KAD maps to Kestrel Active Desk; and LBC maps to Lumen BreakCycle. This crosswalk resolves names but does not adjudicate eligibility."
+        }
+      ],
+      "gold_entities": [
+        {"entity_id": "trial-aster", "canonical_name": "Aster WorkBreak 2014", "aliases": ["AWB-14", "Aster WorkBreak"], "source_ids": ["eligibility-round-1"]},
+        {"entity_id": "trial-birch", "canonical_name": "Birch Breaks Trial", "aliases": ["BBT", "Birch Breaks"], "source_ids": ["eligibility-round-1"]},
+        {"entity_id": "trial-cedar", "canonical_name": "Cedar-Move", "aliases": ["Cedar Move"], "source_ids": ["eligibility-round-1"]},
+        {"entity_id": "trial-dune", "canonical_name": "Dune Active Office", "aliases": ["DAO", "Dune"], "source_ids": ["eligibility-round-1"]},
+        {"entity_id": "trial-elm", "canonical_name": "Elm SitLess", "aliases": ["Elm Sit Less"], "source_ids": ["eligibility-round-1"]},
+        {"entity_id": "trial-flint", "canonical_name": "Flint Steps-at-Work", "aliases": ["FSAW", "Flint Steps at Work"], "source_ids": ["eligibility-round-2"]},
+        {"entity_id": "trial-grove", "canonical_name": "Grove Interrupt Trial", "aliases": ["GIT", "Grove Interrupt"], "source_ids": ["eligibility-round-2"]},
+        {"entity_id": "trial-harbor", "canonical_name": "Harbor MoveMore", "aliases": ["HMM", "Harbor Move More"], "source_ids": ["eligibility-round-2"]},
+        {"entity_id": "trial-iris", "canonical_name": "Iris Microbreak", "aliases": ["IMB", "Iris Micro Break"], "source_ids": ["eligibility-round-2"]},
+        {"entity_id": "trial-juniper", "canonical_name": "Juniper Stand-and-Stretch", "aliases": ["JSS", "Juniper Stand and Stretch"], "source_ids": ["eligibility-round-3"]},
+        {"entity_id": "trial-kestrel", "canonical_name": "Kestrel Active Desk", "aliases": ["KAD", "Kestrel Desk Experiment"], "source_ids": ["eligibility-round-3"]},
+        {"entity_id": "trial-lumen", "canonical_name": "Lumen BreakCycle", "aliases": ["LBC", "Lumen Break Cycle"], "source_ids": ["eligibility-round-3"]}
+      ],
+      "container_names": [
+        "Workplace-break evidence index",
+        "Eligibility adjudication, records 1-7",
+        "Eligibility adjudication, records 8-14",
+        "Eligibility adjudication corrigendum",
+        "Trial acronym and report crosswalk",
+        "candidate-index",
+        "eligibility-round-1",
+        "eligibility-round-2",
+        "eligibility-round-3",
+        "registry-crosswalk"
+      ],
+      "expected_completeness_statuses": ["open", "provisionally_complete"]
+    }
+  ]
+}

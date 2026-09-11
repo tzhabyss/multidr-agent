@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-entity-materialization-20260904-v1",
+  "scenario_type": "entity_materialization",
+  "target_metric": "entity_errors",
+  "invariants": [
+    "valid_entity_ids_only",
+    "target_entity_set_complete",
+    "container_entities_excluded",
+    "target_documents_preserved"
+  ],
+  "episode": {
+    "episode_id": "episode-live-entity-materialization-20260904-v1",
+    "run_id": "skill-evolution-live-entity-materialization-20260904-v1",
+    "task_id": "task-live-entity-materialization",
+    "target_skill_id": "research-planning",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "strategy",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-container-entity-confusion-20260904-v1"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "entity-materialization"},
+    "local_context": {
+      "summary": "Historical closed-enumeration tasks confused source containers with requested target rows.",
+      "failure_type": "container_entity_confusion",
+      "corrective_route": "derive entity type from the literal user scope before materializing rows"
+    },
+    "actions": [
+      {"action": "materialize_candidate_entities", "status": "observed"}
+    ],
+    "local_result": {
+      "entity_errors": 1,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/entity/materialization-failure.json",
+        "record_type": "failure_record",
+        "record_id": "container-entity-failure-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/entity/materialization-failure.json"],
+      "record_ids": ["container-entity-failure-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-04T23:45:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/entity/materialization-failure.json",
+    "content": [
+      {
+        "failure_id": "container-entity-failure-1",
+        "failure_type": "container_entity_confusion",
+        "historical_analogs": ["task75", "task52"],
+        "correction": "classify row entities relative to the user's requested entity type"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "LIVE-EM-01-review-container-v1",
+      "research_scope": "List every randomized controlled trial named in the supplied review table; each trial, not the review, must be one result row.",
+      "source_documents": [
+        {
+          "source_id": "review-2022",
+          "title": "Review of salt-substitution trials",
+          "text": "Table 2 includes the Changzhi, TONE, DECIDE-Salt, Salt Substitute and Stroke Study, and China Rural Health Initiative trials."
+        }
+      ],
+      "candidate_entities": [
+        {"entity_id": "review-2022", "label": "Review of salt-substitution trials", "kind": "review", "source_id": "review-2022"},
+        {"entity_id": "trial-changzhi", "label": "Changzhi", "kind": "trial", "source_id": "review-2022"},
+        {"entity_id": "trial-tone", "label": "TONE", "kind": "trial", "source_id": "review-2022"},
+        {"entity_id": "trial-decide", "label": "DECIDE-Salt", "kind": "trial", "source_id": "review-2022"},
+        {"entity_id": "trial-ssass", "label": "Salt Substitute and Stroke Study", "kind": "trial", "source_id": "review-2022"},
+        {"entity_id": "trial-crhi", "label": "China Rural Health Initiative", "kind": "trial", "source_id": "review-2022"}
+      ],
+      "gold_entity_ids": ["trial-changzhi", "trial-tone", "trial-decide", "trial-ssass", "trial-crhi"],
+      "container_entity_ids": ["review-2022"],
+      "required_document_entity_ids": []
+    },
+    {
+      "fixture_id": "LIVE-EM-02-documents-are-targets-v1",
+      "research_scope": "Compare the methods and conclusions of the three supplied reports; each report must be one result row.",
+      "source_documents": [
+        {"source_id": "report-a", "title": "Report A", "text": "Report A uses a household panel."},
+        {"source_id": "report-b", "title": "Report B", "text": "Report B uses administrative records."},
+        {"source_id": "report-c", "title": "Report C", "text": "Report C uses interviews."}
+      ],
+      "candidate_entities": [
+        {"entity_id": "report-a", "label": "Report A", "kind": "report", "source_id": "report-a"},
+        {"entity_id": "report-b", "label": "Report B", "kind": "report", "source_id": "report-b"},
+        {"entity_id": "report-c", "label": "Report C", "kind": "report", "source_id": "report-c"},
+        {"entity_id": "method-panel", "label": "Household panel", "kind": "method", "source_id": "report-a"},
+        {"entity_id": "method-records", "label": "Administrative records", "kind": "method", "source_id": "report-b"},
+        {"entity_id": "method-interviews", "label": "Interviews", "kind": "method", "source_id": "report-c"}
+      ],
+      "gold_entity_ids": ["report-a", "report-b", "report-c"],
+      "container_entity_ids": [],
+      "required_document_entity_ids": ["report-a", "report-b", "report-c"]
+    },
+    {
+      "fixture_id": "LIVE-EM-03-known-roster-missing-fields-v1",
+      "research_scope": "Use the official roster as the fixed five-city result set for 2019; retain every city row even when a metric is unavailable.",
+      "source_documents": [
+        {"source_id": "official-roster", "title": "2019 official metro roster", "text": "The reporting cities are Alpha, Bravo, Charlie, Delta, and Echo. Delta and Echo did not publish passenger-kilometres."},
+        {"source_id": "news-summary", "title": "Three largest metro systems", "text": "Alpha, Bravo and Charlie reported the largest totals."}
+      ],
+      "candidate_entities": [
+        {"entity_id": "city-alpha", "label": "Alpha", "kind": "city", "source_id": "official-roster"},
+        {"entity_id": "city-bravo", "label": "Bravo", "kind": "city", "source_id": "official-roster"},
+        {"entity_id": "city-charlie", "label": "Charlie", "kind": "city", "source_id": "official-roster"},
+        {"entity_id": "city-delta", "label": "Delta", "kind": "city", "source_id": "official-roster"},
+        {"entity_id": "city-echo", "label": "Echo", "kind": "city", "source_id": "official-roster"},
+        {"entity_id": "official-roster", "label": "2019 official metro roster", "kind": "roster", "source_id": "official-roster"},
+        {"entity_id": "news-summary", "label": "Three largest metro systems", "kind": "news", "source_id": "news-summary"}
+      ],
+      "gold_entity_ids": ["city-alpha", "city-bravo", "city-charlie", "city-delta", "city-echo"],
+      "container_entity_ids": ["official-roster", "news-summary"],
+      "required_document_entity_ids": []
+    }
+  ]
+}

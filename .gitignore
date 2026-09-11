@@ -1,0 +1,72 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.test-runtime/
+.paper-analysis/
+.runtime/
+artifacts/
+tmp/
+papers/
+codex-pets/
+.vscode/
+dist/
+build/
+*.egg-info/
+*.sqlite
+*.sqlite-*
+*.db
+*.log
+docs/memory-evaluation/**/results/
+docs/memory-evaluation/**/cache/
+docs/paper-reading/
+output/pdf/*
+!output/pdf/deepresearch-technical-report.pdf
+output/submission/
+mem0key.txt
+deepseek apikey.txt
+*key*.txt
+*secret*.txt
+*token*.txt
+credentials.*
+secrets.*
+/11.txt
+/graph engineerign.txt
+/question sample.txt
+/新建 文本文档.txt
+
+# macOS metadata
+.DS_Store
+
+# Personal and generated exports
+/outputs/
+/exports/
+/output/
+
+# Full conversations and run traces
+/docs/codex-chat-archive/
+/examples/complete-run/
+
+# Publish documentation by allowlist; local benchmark notes may contain prompts,
+# model outputs, source excerpts, or machine-specific paths.
+/docs/*
+!/docs/memory-system.md
+!/docs/mcp.md
+!/docs/model-modes.md
+!/docs/progress-stream.md
+!/docs/代码阅读指南.md
+!/docs/L2会话级记忆系统面试指南.md
+!/docs/L3长期记忆系统面试指南.md
+!/docs/SkillX-Lite第一阶段技术设计与实施说明.md
+!/docs/CoEvoSkills-Lite第二阶段技术设计与实施说明.md
+!/docs/CoEvoSkills协同进化技术设计与实施说明.md
+!/docs/submission/
+/docs/submission/*
+!/docs/submission/TECHNICAL_REPORT.md
+
+# Benchmark-derived local fixtures; review licensing/content before publishing
+/evaluation/fixtures/skill_evolution/historical-*
+/evaluation/fixtures/skill_evolution/preflight-drb2-*

@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-hard-entity-universe-20260905-v2",
+  "scenario_type": "entity_discovery",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_target_entities_found",
+    "no_unsupported_entities",
+    "aliases_not_split_or_merged",
+    "container_entities_excluded",
+    "scope_completeness_calibrated"
+  ],
+  "episode": {
+    "episode_id": "episode-live-hard-entity-universe-20260905-v2",
+    "run_id": "skill-evolution-live-hard-entity-universe-20260905-v2",
+    "task_id": "task-live-hard-entity-universe-v2",
+    "target_skill_id": "research-planning",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "strategy",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-hard-entity-universe-20260905-v2"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "multi-document-entity-universe"},
+    "local_context": {
+      "summary": "Historical enumeration tasks spent large budgets without forming a normalized target set or calibrating whether the universe was closed.",
+      "failure_type": "multi_document_entity_universe_and_completeness",
+      "historical_analogs": ["task75", "task52"],
+      "corrective_route": "merge entities across containers, aliases, exclusions, and substudies without claiming audited completeness from unresolved sources"
+    },
+    "actions": [
+      {"action": "discover_and_calibrate_entity_universe", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 3,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/entity/hard-entity-universe-failure-v2.json",
+        "record_type": "failure_record",
+        "record_id": "hard-entity-universe-failure-v2"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/entity/hard-entity-universe-failure-v2.json"],
+      "record_ids": ["hard-entity-universe-failure-v2"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-05T22:15:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/entity/hard-entity-universe-failure-v2.json",
+    "content": [
+      {
+        "failure_id": "hard-entity-universe-failure-v2",
+        "failure_type": "multi_document_entity_universe_and_completeness",
+        "historical_analogs": ["task75", "task52"]
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "HARD-ENUM-01-workplace-break-trials-v2",
+      "research_scope": "Create one result row for every primary randomized workplace-break intervention trial identified by the supplied source set. Merge aliases across documents. Exclude reviews, protocols for trials that never started, observational cohorts, and named substudies. Also report the current completeness status of the requested trial universe.",
+      "source_documents": [
+        {
+          "source_id": "review-main",
+          "title": "Systematic review of workplace activity-break interventions",
+          "text": "The main review table includes three eligible primary randomized trials: Aster WorkBreak 2014 (AWB-14), the Birch Breaks Trial, and Cedar-Move. To save space, two newer candidate reports were catalogued only in online Supplement S4; that supplement was unavailable to the review copy used here. The Cedar-Move fatigue substudy is discussed in the main text but is not a separate primary trial."
+        },
+        {
+          "source_id": "registry-crosswalk",
+          "title": "Regional intervention registry crosswalk",
+          "text": "AWB-14 is the registry alias for Aster WorkBreak 2014. BBT refers to the Birch Breaks Trial. Dune Active Office was a cluster-randomized primary intervention and meets the review's eligibility rule. Fox-REST was an observational cohort and is ineligible. The Echo Standing protocol described a planned study whose enrollment never began."
+        },
+        {
+          "source_id": "review-corrigendum",
+          "title": "Corrigendum to the workplace-break review",
+          "text": "The corrigendum adds Dune Active Office to the eligible main set after correcting its design classification. It confirms that Cedar-Move Fatigue Analysis remains a nested substudy of Cedar-Move. The authors did not audit the unavailable Supplement S4 and could not determine whether it contains additional eligible primary trials."
+        }
+      ],
+      "gold_entities": [
+        {"entity_id": "trial-aster", "canonical_name": "Aster WorkBreak 2014", "aliases": ["AWB-14", "Aster WorkBreak"]},
+        {"entity_id": "trial-birch", "canonical_name": "Birch Breaks Trial", "aliases": ["BBT", "Birch Breaks"]},
+        {"entity_id": "trial-cedar", "canonical_name": "Cedar-Move", "aliases": ["Cedar Move"]},
+        {"entity_id": "trial-dune", "canonical_name": "Dune Active Office", "aliases": ["Dune"]}
+      ],
+      "container_names": [
+        "Systematic review of workplace activity-break interventions",
+        "Regional intervention registry crosswalk",
+        "Corrigendum to the workplace-break review",
+        "review-main",
+        "registry-crosswalk",
+        "review-corrigendum"
+      ],
+      "expected_completeness_statuses": ["open", "provisionally_complete"]
+    }
+  ]
+}

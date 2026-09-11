@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-scope-completeness-closed-corpus-20260906-v1",
+  "scenario_type": "entity_discovery_neutral",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_target_entities_found",
+    "no_unsupported_entities",
+    "aliases_not_split_or_merged",
+    "container_entities_excluded",
+    "entity_sources_valid",
+    "scope_completeness_calibrated"
+  ],
+  "episode": {
+    "episode_id": "episode-live-scope-completeness-closed-corpus-20260906-v1",
+    "run_id": "skill-evolution-live-scope-completeness-closed-corpus-20260906-v1",
+    "task_id": "task75-local-scope-completeness-breakpoint",
+    "target_skill_id": "research-planning",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "strategy",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-scope-completeness-closed-corpus-20260906-v1"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "closed-corpus-completeness-calibration"},
+    "local_context": {
+      "summary": "Stable found and normalized the full entity set but returned provisionally_complete even though a supplied closed-corpus inventory explicitly states that it is exhaustive and that no other target exists.",
+      "failure_type": "scope_completeness_underconfidence",
+      "corrective_route": "use audited_complete only when the supplied evidence explicitly closes the requested universe; remain provisional when any source, candidate, or eligibility decision is missing"
+    },
+    "actions": [
+      {"action": "classify_closed_corpus_completeness", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 1,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/entity/closed-corpus-completeness.json",
+        "record_type": "failure_record",
+        "record_id": "closed-corpus-completeness-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/entity/closed-corpus-completeness.json"],
+      "record_ids": ["closed-corpus-completeness-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.95,
+    "created_at": "2026-09-06T18:00:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/entity/closed-corpus-completeness.json",
+    "content": [
+      {
+        "record_id": "closed-corpus-completeness-1",
+        "observed_status": "provisionally_complete",
+        "expected_status": "audited_complete",
+        "entity_recall": 1.0,
+        "entity_precision": 1.0
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "SCOPE-CLOSED-01-one-trial-three-reports",
+      "research_scope": "Create one result row per unique randomized salt-substitution trial represented in the supplied corpus, and report whether this supplied corpus is sufficient to enumerate that trial set.",
+      "source_documents": [
+        {
+          "source_id": "corpus-index",
+          "title": "Salt-substitution corpus inventory",
+          "text": "This is the final audited inventory of the closed corpus. It contains every publication in the collection: one protocol, one primary outcomes article, and one renal analysis. All three carry registration ChiCTR-TRC-12002212; no other randomized trial or unresolved candidate is represented."
+        },
+        {
+          "source_id": "protocol",
+          "title": "Rationale and design of SSaSS",
+          "text": "The Salt Substitute and Stroke Study (SSaSS), registration ChiCTR-TRC-12002212, is an unblinded cluster-randomized trial."
+        },
+        {
+          "source_id": "primary-report",
+          "title": "Effect of Salt Substitution on Cardiovascular Events and Death",
+          "text": "In SSaSS (ChiCTR-TRC-12002212), 20,995 participants were randomized by village. This is the primary outcomes report."
+        },
+        {
+          "source_id": "renal-report",
+          "title": "Potassium-Enriched Salt and Serious Renal Events",
+          "text": "This prespecified renal analysis uses the same SSaSS randomized participants and registration ChiCTR-TRC-12002212; it is not a separate trial."
+        }
+      ],
+      "gold_entities": [
+        {
+          "entity_id": "trial-ssass",
+          "canonical_name": "Salt Substitute and Stroke Study",
+          "aliases": ["SSaSS", "ChiCTR-TRC-12002212"],
+          "source_ids": ["protocol", "primary-report", "renal-report"]
+        }
+      ],
+      "container_names": ["Salt-substitution corpus inventory", "corpus-index"],
+      "expected_completeness_statuses": ["audited_complete"]
+    }
+  ]
+}

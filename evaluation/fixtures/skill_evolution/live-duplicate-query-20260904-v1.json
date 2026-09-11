@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-duplicate-query-20260904-v1",
+  "episode": {
+    "episode_id": "episode-live-duplicate-query-20260904-v1",
+    "run_id": "skill-evolution-live-duplicate-query-20260904-v1",
+    "task_id": "task-live-query-dedup",
+    "target_skill_id": "web-search",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-duplicate-query-20260904-v1"],
+    "trigger_types": ["duplicate_query"],
+    "scope": {"type": "query", "value": "task-local query batch"},
+    "local_context": {
+      "summary": "A task-local search batch executed semantically equivalent queries more than once.",
+      "duplicate_query_ratio": 0.5,
+      "examples": [
+        "SkillX paper 2026",
+        "2026 paper about SkillX",
+        "SkillX GitHub repository"
+      ]
+    },
+    "actions": [
+      {"query_id": "q1", "query": "SkillX paper 2026"},
+      {"query_id": "q2", "query": "2026 paper about SkillX"},
+      {"query_id": "q3", "query": "SkillX GitHub repository"}
+    ],
+    "local_result": {
+      "duplicate_queries": 1,
+      "duplicate_query_ratio": 0.3333333333,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/traces/search.json",
+        "record_type": "search_trace",
+        "record_id": "search-trace-dup-2"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/traces/search.json"],
+      "record_ids": ["search-trace-dup-2"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.94,
+    "created_at": "2026-09-04T22:45:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/traces/search.json",
+    "content": [
+      {
+        "trace_id": "search-trace-dup-1",
+        "query_id": "q1",
+        "query": "SkillX paper 2026",
+        "result_urls": ["https://example.invalid/skillx-paper"]
+      },
+      {
+        "trace_id": "search-trace-dup-2",
+        "query_id": "q2",
+        "query": "2026 paper about SkillX",
+        "semantic_duplicate_of": "q1",
+        "result_urls": ["https://example.invalid/skillx-paper"]
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "LIVE-DQ-01-near-synonym-v1",
+      "queries": [
+        {"query_id": "q1", "query": "SkillX paper"},
+        {"query_id": "q2", "query": "academic paper about SkillX"},
+        {"query_id": "q3", "query": "SkillX GitHub repository"}
+      ],
+      "equivalence_groups": [["q1", "q2"], ["q3"]]
+    },
+    {
+      "fixture_id": "LIVE-DQ-02-year-boundary-v1",
+      "queries": [
+        {"query_id": "q1", "query": "SkillX paper 2026"},
+        {"query_id": "q2", "query": "2026 paper about SkillX"},
+        {"query_id": "q3", "query": "SkillX paper 2025"}
+      ],
+      "equivalence_groups": [["q1", "q2"], ["q3"]]
+    },
+    {
+      "fixture_id": "LIVE-DQ-03-entity-boundary-v1",
+      "queries": [
+        {"query_id": "q1", "query": "SkillX benchmark results"},
+        {"query_id": "q2", "query": "benchmark results of SkillX"},
+        {"query_id": "q3", "query": "CoEvoSkills benchmark results"}
+      ],
+      "equivalence_groups": [["q1", "q2"], ["q3"]]
+    }
+  ]
+}

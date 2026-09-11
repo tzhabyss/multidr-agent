@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-nr-conflict-neutral-20260906-v1",
+  "scenario_type": "field_matrix_neutral",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_bindings_valid",
+    "all_cells_present",
+    "no_extra_or_duplicate_cells",
+    "nr_not_fabricated",
+    "quotes_exact_and_sources_valid",
+    "statuses_correct",
+    "values_correct"
+  ],
+  "episode": {
+    "episode_id": "episode-live-nr-conflict-neutral-20260906-v1",
+    "run_id": "skill-evolution-live-nr-conflict-neutral-20260906-v1",
+    "task_id": "local-nr-conflict-breakpoint",
+    "target_skill_id": "evidence-extraction",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-nr-conflict-neutral-20260906-v1"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "field_matrix", "value": "nr-versus-conflict"},
+    "local_context": {
+      "summary": "The same matrix contains an explicitly unreported field and two unreconciled final-source values for another field.",
+      "failure_type": "nr_conflict_classification_error",
+      "corrective_route": "emit nr with no value when the requested value is absent; emit conflict with all exact source-bound values when equally applicable final materials disagree without correction"
+    },
+    "actions": [
+      {"action": "classify_nr_and_conflict_cells", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 2,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/evidence/nr-conflict-snapshot.json",
+        "record_type": "failure_record",
+        "record_id": "nr-conflict-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/evidence/nr-conflict-snapshot.json"],
+      "record_ids": ["nr-conflict-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-06T18:30:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/evidence/nr-conflict-snapshot.json",
+    "content": [
+      {
+        "record_id": "nr-conflict-1",
+        "candidate_problem": "nr_conflict_classification_error"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "NR-CONFLICT-01-final-report-and-supplement",
+      "research_scope": "For Trial TONE, fill withdrawals_n and serious_adverse_events_n from the supplied final publication materials.",
+      "entities": [
+        {"entity_id": "trial-tone", "name": "TONE", "aliases": ["Trial of Nonpharmacologic Interventions in the Elderly"]}
+      ],
+      "field_schema": [
+        {"field_key": "withdrawals_n", "description": "number of participant withdrawals"},
+        {"field_key": "serious_adverse_events_n", "description": "number of serious adverse events"}
+      ],
+      "source_documents": [
+        {
+          "source_id": "tone-final-main",
+          "title": "TONE final main report",
+          "text": "The final TONE results article states: 87 participants withdrew before the last visit. Serious adverse events were not reported in this article."
+        },
+        {
+          "source_id": "tone-final-supplement",
+          "title": "TONE final article supplement",
+          "text": "The official supplement to the same final TONE article states: 91 participants withdrew before the last visit. The publication record contains no correction or reconciliation between 87 and 91."
+        }
+      ],
+      "gold_cells": [
+        {
+          "entity_id": "trial-tone",
+          "field_key": "withdrawals_n",
+          "status": "conflict",
+          "expected_values": [
+            {"value": "87", "source_ids": ["tone-final-main"]},
+            {"value": "91", "source_ids": ["tone-final-supplement"]}
+          ]
+        },
+        {
+          "entity_id": "trial-tone",
+          "field_key": "serious_adverse_events_n",
+          "status": "nr",
+          "expected_values": []
+        }
+      ]
+    }
+  ]
+}

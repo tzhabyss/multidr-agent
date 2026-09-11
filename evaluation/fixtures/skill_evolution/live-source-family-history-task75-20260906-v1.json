@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-source-family-history-task75-20260906-v1",
+  "scenario_type": "route_selection_history",
+  "target_metric": "source_family_failures",
+  "invariants": [
+    "valid_route_ids_only",
+    "blocked_routes_avoided",
+    "successful_route_reached"
+  ],
+  "episode": {
+    "episode_id": "episode-live-source-family-history-task75-20260906-v1",
+    "run_id": "skill-evolution-live-source-family-history-task75-20260906-v1",
+    "task_id": "task75-local-source-family-breakpoint",
+    "target_skill_id": "safe-fetch",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-source-family-history-task75-20260906-v1"],
+    "trigger_types": ["source_family_repeated_failure"],
+    "scope": {"type": "source_family", "value": "oup-publication-platform"},
+    "local_context": {
+      "summary": "Direct and dynamic access to one publisher platform failed, but the next route still returned to an alias/CDN in the same platform before trying an authoritative independent copy.",
+      "failure_type": "source_family_repeated_failure",
+      "recurrence_count": 2,
+      "corrective_route": "infer publisher/redirect/CDN aliases from access history and prefer an authoritative independent source family after repeated family-level failure"
+    },
+    "actions": [
+      {"route": "direct", "host": "academic.oup.com", "status": "failed"},
+      {"route": "dynamic", "host": "academic.oup.com", "status": "failed"}
+    ],
+    "local_result": {
+      "source_family_failures": 1,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/search/source-family-history.json",
+        "record_type": "failure_record",
+        "record_id": "task75-source-family-history-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/search/source-family-history.json"],
+      "record_ids": ["task75-source-family-history-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.95,
+    "created_at": "2026-09-06T17:00:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/search/source-family-history.json",
+    "content": [
+      {
+        "failure_id": "task75-source-family-history-1",
+        "failure_type": "source_family_repeated_failure",
+        "observed_failed_hosts": ["academic.oup.com", "academic.oup.com"],
+        "selected_next_route": "oup-pdf-cdn",
+        "normalized_failed_family": "oup-publication-platform",
+        "correction": "choose europepmc-fulltext before another OUP/Silverchair route"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "TASK75-SF-HISTORY-01-publisher-alias",
+      "prior_attempts": [
+        {
+          "attempt_id": "a1",
+          "url": "https://doi.org/10.1093/eurheartj/example",
+          "redirect_host": "academic.oup.com",
+          "route_type": "direct_html",
+          "status": "failed",
+          "error": "403 challenge page"
+        },
+        {
+          "attempt_id": "a2",
+          "url": "https://academic.oup.com/eurheartj/article/example",
+          "route_type": "dynamic_browser",
+          "status": "failed",
+          "error": "challenge persisted"
+        }
+      ],
+      "oracle_exhausted_source_families": ["oup-publication-platform"],
+      "available_routes": [
+        {
+          "route_id": "oup-pdf-cdn",
+          "route_type": "publisher_pdf",
+          "url": "https://oup.silverchair-cdn.com/oup/backfile/example.pdf",
+          "source_family": "oup-publication-platform",
+          "allowed": true,
+          "quality": "primary",
+          "outcome": "failure"
+        },
+        {
+          "route_id": "europepmc-fulltext",
+          "route_type": "repository_fulltext",
+          "url": "https://europepmc.org/articles/PMC-example",
+          "source_family": "europepmc.org",
+          "allowed": true,
+          "quality": "authoritative-copy",
+          "outcome": "success"
+        },
+        {
+          "route_id": "crossref-metadata",
+          "route_type": "academic_metadata",
+          "url": "https://api.crossref.org/works/example",
+          "source_family": "crossref.org",
+          "allowed": true,
+          "quality": "metadata-only",
+          "outcome": "success"
+        },
+        {
+          "route_id": "private-mirror",
+          "route_type": "private_network",
+          "url": "https://internal.example/example.pdf",
+          "source_family": "internal",
+          "allowed": false,
+          "quality": "unknown",
+          "outcome": "success"
+        }
+      ]
+    }
+  ]
+}

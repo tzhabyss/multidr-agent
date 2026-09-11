@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f7f7f5" />
+    <title>Deep Research</title>
+    <link rel="stylesheet" href="/assets/styles.css?v=4" />
+  </head>
+  <body>
+    <a class="skip-link" href="#mainScroller">跳到对话</a>
+
+    <div class="app-shell" id="appShell">
+      <aside class="sidebar" id="sidebar" aria-label="对话侧边栏">
+        <div class="sidebar-brand">
+          <span class="brand-symbol" aria-hidden="true"><i></i><i></i></span>
+          <span>Deep Research</span>
+        </div>
+
+        <button class="new-chat-button" id="newSessionButton" type="button">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" /></svg>
+          <span>新对话</span>
+          <kbd>⌘N</kbd>
+        </button>
+
+        <label class="session-search" for="sessionSearch">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5" /><path d="m13 13 4 4" /></svg>
+          <input id="sessionSearch" type="search" placeholder="搜索对话" autocomplete="off" />
+        </label>
+
+        <div class="sidebar-section-heading">
+          <span>对话</span>
+          <span id="sessionCount">—</span>
+        </div>
+        <nav class="session-list" id="sessionList" aria-label="历史对话">
+          <p class="sidebar-empty">正在读取对话…</p>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="runtime-state">
+            <i class="status-dot" id="apiDot"></i>
+            <span><strong id="apiStatus">正在连接</strong><small id="runtimeSummary">本地运行时</small></span>
+          </div>
+          <button class="icon-button" id="sidebarClose" type="button" aria-label="关闭侧边栏">×</button>
+        </div>
+      </aside>
+
+      <section class="main-shell">
+        <header class="titlebar">
+          <div class="titlebar-leading">
+            <button class="icon-button mobile-menu" id="sidebarToggle" type="button" aria-label="打开侧边栏">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" /></svg>
+            </button>
+            <div class="conversation-heading">
+              <h1 id="currentSessionTitle">新研究</h1>
+              <p id="currentSessionMeta">普通研究 · 持久记忆</p>
+            </div>
+          </div>
+          <div class="titlebar-actions">
+            <span class="compact-status"><i class="status-dot ready"></i><span id="headerStatus">就绪</span></span>
+            <button class="toolbar-button" id="inspectorToggle" type="button" aria-expanded="true" aria-controls="inspector">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2" /><path d="M12.5 3v14" /></svg>
+              <span>运行详情</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="workbench">
+          <main class="main-scroller" id="mainScroller">
+            <div class="content-column">
+              <section class="welcome" id="welcomeState">
+                <div class="research-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+                <h2>今天想研究什么？</h2>
+                <p>我会拆解问题、并行取证，并在报告中保留每个结论的来路。</p>
+              </section>
+
+              <section class="conversation-stream" id="conversationHistory" aria-label="对话记录" hidden></section>
+
+              <section class="run-card" id="pipelineSection" hidden aria-labelledby="pipelineTitle">
+                <div class="run-card-header">
+                  <div><span class="run-state" id="runEyebrow">等待任务</span><h2 id="pipelineTitle">研究进度</h2></div>
+                  <div class="run-card-actions">
+                    <button class="subtle-button" id="resumeButton" type="button" hidden>恢复任务</button>
+                    <span class="timer" id="elapsedTime">00:00</span>
+                  </div>
+                </div>
+
+                <div class="dag-track" id="dagTrack" aria-label="研究 DAG 进度">
+                  <div class="dag-node" data-phase="memory"><i></i><span>记忆</span></div><div class="dag-edge"></div>
+                  <div class="dag-node" data-phase="planning"><i></i><span>规划</span></div><div class="dag-edge"></div>
+                  <div class="dag-node" data-phase="research"><i></i><span>取证</span></div><div class="dag-edge"></div>
+                  <div class="dag-node" data-phase="synthesis"><i></i><span>综合</span></div><div class="dag-edge"></div>
+                  <div class="dag-node" data-phase="writing"><i></i><span>成稿</span></div><div class="dag-edge"></div>
+                  <div class="dag-node" data-phase="reviewing"><i></i><span>审阅</span></div><div class="dag-edge"></div>
+                  <div class="dag-node" data-phase="artifact"><i></i><span>归档</span></div>
+                </div>
+
+                <div class="activity-feed" id="activityWindow" aria-live="polite">
+                  <div class="activity-empty" id="activityEmpty">开始后，Planner、Worker 和工具进展会显示在这里。</div>
+                  <ol class="activity-list" id="activityList"></ol>
+                </div>
+              </section>
+
+              <section class="report-section" id="reportSection" hidden aria-labelledby="reportTitle">
+                <div class="report-header">
+                  <div><span id="reportState">尚未生成</span><h2 id="reportTitle">研究报告</h2></div>
+                  <div class="report-actions">
+                    <button class="subtle-button" id="copyReportButton" type="button" disabled>复制</button>
+                    <button class="subtle-button" id="downloadReportButton" type="button" disabled>下载</button>
+                  </div>
+                </div>
+                <article class="report-body" id="reportBody"></article>
+              </section>
+            </div>
+          </main>
+
+          <aside class="inspector" id="inspector" aria-label="运行详情">
+            <div class="inspector-heading">
+              <strong>运行详情</strong>
+              <button class="icon-button" id="inspectorClose" type="button" aria-label="关闭运行详情">×</button>
+            </div>
+            <div class="inspector-tabs" role="tablist">
+              <button class="inspector-tab active" role="tab" aria-selected="true" data-panel="runPanel">运行</button>
+              <button class="inspector-tab" role="tab" aria-selected="false" data-panel="evidencePanel">证据</button>
+              <button class="inspector-tab" role="tab" aria-selected="false" data-panel="skillPanel">Skills</button>
+            </div>
+
+            <section class="inspector-panel active" id="runPanel" role="tabpanel">
+              <dl class="metric-grid">
+                <div><dt>状态</dt><dd id="runStatus">空闲</dd></div><div><dt>轮次</dt><dd id="roundMetric">—</dd></div>
+                <div><dt>Worker</dt><dd id="workerMetric">—</dd></div><div><dt>来源</dt><dd id="sourceMetric">—</dd></div>
+                <div><dt>搜索</dt><dd id="searchMetric">—</dd></div><div><dt>抓取</dt><dd id="fetchMetric">—</dd></div>
+              </dl>
+              <div class="inspector-group"><h3>当前动作</h3><p id="currentAction">等待新的研究问题。</p></div>
+              <div class="inspector-group"><h3>模式</h3><p><span id="modeDetail">标准</span> · 普通研究</p></div>
+              <details class="technical-details"><summary>技术信息</summary><button id="runIdValue" type="button" title="复制运行 ID">尚未创建</button></details>
+            </section>
+
+            <section class="inspector-panel" id="evidencePanel" role="tabpanel" hidden>
+              <div class="evidence-summary"><strong id="claimCount">0</strong><span>可用结论</span><strong id="citationState">—</strong><span>引用门控</span></div>
+              <div class="source-list" id="sourceList"><p class="empty-note">研究完成后显示来源。</p></div>
+            </section>
+
+            <section class="inspector-panel" id="skillPanel" role="tabpanel" hidden>
+              <div class="skill-state"><i></i><div><strong>观察模式已开启</strong><p>普通任务收集演化信号，不会自动修改 Stable Skill。</p></div></div>
+              <div class="skill-list" id="skillList"><p class="empty-note">正在加载 Skills…</p></div>
+            </section>
+          </aside>
+        </div>
+
+        <div class="composer-dock">
+          <form class="research-form" id="researchForm">
+            <textarea id="questionInput" name="question" rows="1" maxlength="20000" placeholder="向 Deep Research 提问" aria-label="研究问题" required></textarea>
+            <div class="composer-controls">
+              <label class="mode-select-label"><span class="sr-only">研究深度</span><select id="modeSelect" name="mode" aria-label="研究深度"><option value="quick">快速</option><option value="standard" selected>标准</option><option value="deep">深入</option><option value="max">最大</option></select></label>
+              <span class="composer-tip">⌘ Enter</span>
+              <button class="send-button" id="submitButton" type="submit" aria-label="开始研究"><span>开始研究</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4M5.5 8.5 10 4l4.5 4.5" /></svg></button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/assets/app.js?v=4" defer></script>
+  </body>
+</html>

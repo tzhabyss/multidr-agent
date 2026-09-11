@@ -1,0 +1,10 @@
+{
+  "roles": ["worker"],
+  "profiles": ["general_research", "drb_evaluation"],
+  "tags": ["evidence"],
+  "skill_layer": "strategy",
+  "capability_granularity": "functional",
+  "version": "1.0.0",
+  "result_kind": "evidence_observation",
+  "output_artifact_roles": ["target_entity", "entity_container", "field_evidence", "navigation_only"]
+}

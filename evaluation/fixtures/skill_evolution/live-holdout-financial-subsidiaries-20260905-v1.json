@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-holdout-financial-subsidiaries-20260905-v1",
+  "scenario_type": "field_matrix",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_cells_present",
+    "no_extra_or_duplicate_cells",
+    "all_bindings_valid",
+    "statuses_correct",
+    "values_correct",
+    "quotes_exact_and_sources_valid",
+    "nr_not_fabricated"
+  ],
+  "episode": {
+    "episode_id": "episode-live-holdout-financial-subsidiaries-20260905-v1",
+    "run_id": "skill-evolution-live-holdout-financial-subsidiaries-20260905-v1",
+    "task_id": "task-live-holdout-financial-subsidiaries",
+    "target_skill_id": "evidence-extraction",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-holdout-financial-subsidiaries-20260905-v1"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "financial-subsidiary-field-matrix"},
+    "local_context": {
+      "summary": "Cross-domain holdout for entity-specific exact quotes in a company filing.",
+      "failure_type": "multi_entity_financial_quote_binding"
+    },
+    "actions": [
+      {"action": "extract_subsidiary_matrix", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 1,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/evidence/financial-holdout.json",
+        "record_type": "failure_record",
+        "record_id": "financial-holdout-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/evidence/financial-holdout.json"],
+      "record_ids": ["financial-holdout-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-05T20:00:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/evidence/financial-holdout.json",
+    "content": [
+      {
+        "failure_id": "financial-holdout-1",
+        "failure_type": "multi_entity_financial_quote_binding"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "HOLDOUT-FIN-01-subsidiary-matrix-v1",
+      "research_scope": "For each fixed subsidiary, fill ownership_percentage, revenue_share, and accounting_method from the supplied annual-report excerpts, and cite the supplied source for every reported value.",
+      "entities": [
+        {"entity_id": "sub-aurora", "name": "Aurora Payments Ltd.", "aliases": ["Aurora Payments", "Aurora"]},
+        {"entity_id": "sub-beacon", "name": "Beacon Cloud GmbH", "aliases": ["Beacon Cloud", "Beacon"]},
+        {"entity_id": "sub-cedar", "name": "Cedar Logistics Pte. Ltd.", "aliases": ["Cedar Logistics", "Cedar"]}
+      ],
+      "field_schema": [
+        {"field_key": "ownership_percentage", "description": "Direct ownership percentage at December 31, 2025"},
+        {"field_key": "revenue_share", "description": "Share of 2025 consolidated revenue"},
+        {"field_key": "accounting_method", "description": "Accounting method stated in Note 12"}
+      ],
+      "source_documents": [
+        {
+          "source_id": "annual-report-note-12",
+          "title": "Example Group 2025 Annual Report, Note 12",
+          "text": "At December 31, 2025, the Group's direct holdings were 72% in Aurora Payments Ltd., 41% in Beacon Cloud GmbH, and 88% in Cedar Logistics Pte. Ltd. The accounting methods were full consolidation for Aurora Payments Ltd., equity method for Beacon Cloud GmbH, and full consolidation for Cedar Logistics Pte. Ltd."
+        },
+        {
+          "source_id": "annual-report-segment-note",
+          "title": "Example Group 2025 Annual Report, Segment Note",
+          "text": "The three operating subsidiaries contributed 18% for Aurora Payments Ltd., 7% for Beacon Cloud GmbH, and 24% for Cedar Logistics Pte. Ltd. of consolidated revenue in 2025. Percentages for associates outside these three entities are excluded from this table."
+        }
+      ],
+      "gold_cells": [
+        {"entity_id": "sub-aurora", "field_key": "ownership_percentage", "status": "supported", "expected_values": [{"value": "72%", "source_ids": ["annual-report-note-12"], "quote_must_contain_any": ["Aurora Payments Ltd.", "Aurora Payments", "Aurora"]}]},
+        {"entity_id": "sub-aurora", "field_key": "revenue_share", "status": "supported", "expected_values": [{"value": "18%", "source_ids": ["annual-report-segment-note"], "quote_must_contain_any": ["Aurora Payments Ltd.", "Aurora Payments", "Aurora"]}]},
+        {"entity_id": "sub-aurora", "field_key": "accounting_method", "status": "supported", "expected_values": [{"value": "full consolidation", "source_ids": ["annual-report-note-12"], "quote_must_contain_any": ["Aurora Payments Ltd.", "Aurora Payments", "Aurora"]}]},
+
+        {"entity_id": "sub-beacon", "field_key": "ownership_percentage", "status": "supported", "expected_values": [{"value": "41%", "source_ids": ["annual-report-note-12"], "quote_must_contain_any": ["Beacon Cloud GmbH", "Beacon Cloud", "Beacon"]}]},
+        {"entity_id": "sub-beacon", "field_key": "revenue_share", "status": "supported", "expected_values": [{"value": "7%", "source_ids": ["annual-report-segment-note"], "quote_must_contain_any": ["Beacon Cloud GmbH", "Beacon Cloud", "Beacon"]}]},
+        {"entity_id": "sub-beacon", "field_key": "accounting_method", "status": "supported", "expected_values": [{"value": "equity method", "source_ids": ["annual-report-note-12"], "quote_must_contain_any": ["Beacon Cloud GmbH", "Beacon Cloud", "Beacon"]}]},
+
+        {"entity_id": "sub-cedar", "field_key": "ownership_percentage", "status": "supported", "expected_values": [{"value": "88%", "source_ids": ["annual-report-note-12"], "quote_must_contain_any": ["Cedar Logistics Pte. Ltd.", "Cedar Logistics", "Cedar"]}]},
+        {"entity_id": "sub-cedar", "field_key": "revenue_share", "status": "supported", "expected_values": [{"value": "24%", "source_ids": ["annual-report-segment-note"], "quote_must_contain_any": ["Cedar Logistics Pte. Ltd.", "Cedar Logistics", "Cedar"]}]},
+        {"entity_id": "sub-cedar", "field_key": "accounting_method", "status": "supported", "expected_values": [{"value": "full consolidation", "source_ids": ["annual-report-note-12"], "quote_must_contain_any": ["Cedar Logistics Pte. Ltd.", "Cedar Logistics", "Cedar"]}]}
+      ]
+    }
+  ]
+}

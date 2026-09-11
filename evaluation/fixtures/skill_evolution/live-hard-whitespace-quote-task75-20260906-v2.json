@@ -1,0 +1,121 @@
+{
+  "campaign_id": "live-hard-whitespace-quote-task75-20260906-v2",
+  "episode": {
+    "actions": [
+      {
+        "action": "extract_entity_identifying_exact_quote_across_web_whitespace",
+        "status": "failed"
+      }
+    ],
+    "candidate_policy": "automatic_candidate_allowed",
+    "capability_granularity": "atomic",
+    "confidence": 0.95,
+    "created_at": "2026-09-06T01:30:00+08:00",
+    "episode_id": "episode-live-hard-whitespace-quote-task75-20260906-v2",
+    "evidence_refs": [
+      {
+        "artifact_path": "details/evidence/task75-entity-identifying-quote-failure.json",
+        "record_id": "task75-entity-identifying-quote-failure-1",
+        "record_type": "failure_record"
+      }
+    ],
+    "local_context": {
+      "corrective_route": "copy one exact contiguous span that includes a source-visible target entity name or alias and the requested field value; preserve intervening line breaks and reference markers exactly",
+      "failure_type": "quote_does_not_identify_target_entity_across_web_whitespace",
+      "historical_analog": "task75 extraction breakpoint v4 and whitespace campaign v1",
+      "summary": "Stable returned the correct SSaSS design value and an exact local phrase, but the quote omitted the target entity identity, so the entity-field binding was not auditable."
+    },
+    "local_result": {
+      "observed_failure_or_low_gain": true,
+      "severity": "warning",
+      "skill_execution_failures": 1
+    },
+    "replay_spec": {
+      "artifact_paths": [
+        "details/evidence/task75-entity-identifying-quote-failure.json"
+      ],
+      "external_writes_allowed": false,
+      "record_ids": [
+        "task75-entity-identifying-quote-failure-1"
+      ]
+    },
+    "run_id": "skill-evolution-live-hard-whitespace-quote-task75-20260906-v2",
+    "runtime_layer": "access",
+    "scope": {
+      "type": "task",
+      "value": "entity-identifying-exact-web-quote"
+    },
+    "target_skill_id": "evidence-extraction",
+    "target_skill_version": "1.0.0",
+    "task_id": "task-live-hard-whitespace-quote-task75-v2",
+    "trigger_signal_ids": [
+      "signal-live-hard-whitespace-quote-task75-20260906-v2"
+    ],
+    "trigger_types": [
+      "skill_execution_failure"
+    ]
+  },
+  "evidence_artifact": {
+    "content": [
+      {
+        "bad_quote": "is an unblinded, cluster-randomized trial",
+        "failure_id": "task75-entity-identifying-quote-failure-1",
+        "failure_type": "quote_does_not_identify_target_entity_across_web_whitespace",
+        "reason": "The quote is exact and contains the value, but does not contain SSaSS or the full trial name; the wider exact span must retain source line breaks and the reference marker.",
+        "source_id": "task75-acc-snapshot"
+      }
+    ],
+    "relative_path": "details/evidence/task75-entity-identifying-quote-failure.json"
+  },
+  "fixtures": [
+    {
+      "entities": [
+        {
+          "aliases": ["SSaSS"],
+          "entity_id": "trial-ssass",
+          "name": "Salt Substitute and Stroke Study"
+        }
+      ],
+      "field_schema": [
+        {
+          "description": "The randomization and masking design stated by the source",
+          "field_key": "design"
+        }
+      ],
+      "fixture_id": "TASK75-WHITESPACE-QUOTE-02-ssass-design",
+      "gold_cells": [
+        {
+          "entity_id": "trial-ssass",
+          "expected_values": [
+            {
+              "quote_must_contain_any": ["SSaSS", "Salt Substitute and Stroke Study"],
+              "source_ids": ["task75-acc-snapshot"],
+              "value": "unblinded, cluster-randomized trial"
+            }
+          ],
+          "field_key": "design",
+          "status": "supported"
+        }
+      ],
+      "research_scope": "For the fixed SSaSS trial, extract only the study design. Bind the value to an exact contiguous source quote that makes the target entity auditable.",
+      "source_documents": [
+        {
+          "source_id": "task75-acc-snapshot",
+          "text": "However, until recently, the effect of replacing regular salt (100% sodium chloride) with salt substitutes (75% sodium chloride, 25% potassium chloride) on cardiovascular outcomes had not been studied.\nThe\nSalt Substitute and Stroke Study (SSaSS\n)\n1\nis an unblinded, cluster-randomized trial that included 20,995 participants from 600 rural Chinese villages who had a history of stroke or were 60 years or older with a diagnosis of hypertension. These participants were randomized in a 1:1 ratio by village to salt substitute or regular salt."
+        }
+      ]
+    }
+  ],
+  "invariants": [
+    "all_cells_present",
+    "no_extra_or_duplicate_cells",
+    "all_bindings_valid",
+    "statuses_correct",
+    "values_correct",
+    "quotes_exact_and_sources_valid",
+    "nr_not_fabricated"
+  ],
+  "scenario_type": "field_matrix",
+  "schema_version": "1.0",
+  "target_metric": "skill_execution_failures"
+}

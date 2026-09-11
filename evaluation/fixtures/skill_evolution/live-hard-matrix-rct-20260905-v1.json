@@ -1,0 +1,146 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "live-hard-matrix-rct-20260905-v1",
+  "scenario_type": "field_matrix",
+  "target_metric": "skill_execution_failures",
+  "invariants": [
+    "all_cells_present",
+    "no_extra_or_duplicate_cells",
+    "all_bindings_valid",
+    "statuses_correct",
+    "values_correct",
+    "quotes_exact_and_sources_valid",
+    "nr_not_fabricated"
+  ],
+  "episode": {
+    "episode_id": "episode-live-hard-matrix-rct-20260905-v1",
+    "run_id": "skill-evolution-live-hard-matrix-rct-20260905-v1",
+    "task_id": "task-live-hard-matrix-rct",
+    "target_skill_id": "evidence-extraction",
+    "target_skill_version": "1.0.0",
+    "runtime_layer": "access",
+    "capability_granularity": "atomic",
+    "candidate_policy": "automatic_candidate_allowed",
+    "trigger_signal_ids": ["signal-live-hard-matrix-rct-20260905-v1"],
+    "trigger_types": ["skill_execution_failure"],
+    "scope": {"type": "task", "value": "rct-field-matrix"},
+    "local_context": {
+      "summary": "Historical RCT enumeration produced incomplete field matrices despite high search and fetch cost.",
+      "failure_type": "multi_document_field_matrix_failure",
+      "historical_analog": "task75",
+      "corrective_route": "bind every entity-field cell to final-result evidence, preserve unresolved conflicts, and emit NR rather than dropping rows"
+    },
+    "actions": [
+      {"action": "extract_and_bind_rct_matrix", "status": "failed"}
+    ],
+    "local_result": {
+      "skill_execution_failures": 5,
+      "observed_failure_or_low_gain": true,
+      "severity": "warning"
+    },
+    "evidence_refs": [
+      {
+        "artifact_path": "details/evidence/hard-rct-matrix-failure.json",
+        "record_type": "failure_record",
+        "record_id": "hard-rct-matrix-failure-1"
+      }
+    ],
+    "replay_spec": {
+      "artifact_paths": ["details/evidence/hard-rct-matrix-failure.json"],
+      "record_ids": ["hard-rct-matrix-failure-1"],
+      "external_writes_allowed": false
+    },
+    "confidence": 0.9,
+    "created_at": "2026-09-05T00:45:00+08:00"
+  },
+  "evidence_artifact": {
+    "relative_path": "details/evidence/hard-rct-matrix-failure.json",
+    "content": [
+      {
+        "failure_id": "hard-rct-matrix-failure-1",
+        "failure_type": "multi_document_field_matrix_failure",
+        "historical_analog": "task75",
+        "correction": "distinguish planned, randomized, and analytic populations; preserve conflicts and explicit NR at cell level"
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "fixture_id": "HARD-MX-01-rct-matrix-v1",
+      "research_scope": "For each of the three fixed randomized trials, fill publication_year, randomized_n, intervention, primary_outcome, and withdrawals_n. For randomized_n use final randomized enrollment, not planned enrollment or analytic population. If equally applicable authoritative final materials disagree without a stated correction, preserve both values as conflict. If a field is not reported, return nr without deleting the trial row.",
+      "entities": [
+        {"entity_id": "trial-changzhi", "name": "Changzhi salt-substitute trial", "aliases": ["Changzhi"]},
+        {"entity_id": "trial-tone", "name": "TONE", "aliases": ["Trial of Nonpharmacologic Interventions in the Elderly"]},
+        {"entity_id": "trial-ssass", "name": "Salt Substitute and Stroke Study", "aliases": ["SSaSS"]}
+      ],
+      "field_schema": [
+        {"field_key": "publication_year", "description": "Year the final result report was published"},
+        {"field_key": "randomized_n", "description": "Final number randomized; exclude planned and analysis-only populations"},
+        {"field_key": "intervention", "description": "Intervention assigned to the experimental group"},
+        {"field_key": "primary_outcome", "description": "Outcome explicitly identified as primary"},
+        {"field_key": "withdrawals_n", "description": "Reported number of withdrawals; preserve unresolved authoritative conflicts"}
+      ],
+      "source_documents": [
+        {
+          "source_id": "review-roster",
+          "title": "Review table of eligible salt intervention trials",
+          "text": "The final reports were published for Changzhi in 2010, TONE in 1998, and SSaSS in 2021. The review table is a trial roster, not a final enrollment source."
+        },
+        {
+          "source_id": "changzhi-protocol",
+          "title": "Changzhi protocol",
+          "text": "The planned enrollment was 600 participants. The protocol did not state a final withdrawal count."
+        },
+        {
+          "source_id": "changzhi-final",
+          "title": "Changzhi final report",
+          "text": "The trial randomized 608 participants. Participants received potassium-enriched salt substitute. The primary outcome was change in systolic blood pressure. Withdrawals were not reported."
+        },
+        {
+          "source_id": "tone-final",
+          "title": "TONE final report",
+          "text": "TONE randomized 975 participants. The intervention was a reduced-sodium diet. The primary outcome was recurrence of hypertension. The main report lists 87 withdrawals."
+        },
+        {
+          "source_id": "tone-appendix",
+          "title": "TONE final-report Appendix A",
+          "text": "Appendix A lists 91 withdrawals. No correction or reconciliation with the main report is provided."
+        },
+        {
+          "source_id": "ssass-protocol",
+          "title": "SSaSS protocol",
+          "text": "The target sample size was 21,000 participants. Stroke was specified as the primary outcome."
+        },
+        {
+          "source_id": "ssass-final",
+          "title": "SSaSS final report",
+          "text": "The study randomized 20,995 participants. The intervention group received 75% sodium chloride and 25% potassium chloride salt substitute. The primary outcome was stroke. The final report records 321 withdrawals."
+        },
+        {
+          "source_id": "ssass-appendix",
+          "title": "SSaSS analysis appendix",
+          "text": "The prespecified analysis population contained 20,982 participants after exclusions; this was not the randomized enrollment."
+        }
+      ],
+      "gold_cells": [
+        {"entity_id": "trial-changzhi", "field_key": "publication_year", "status": "supported", "expected_values": [{"value": "2010", "source_ids": ["review-roster"]}]},
+        {"entity_id": "trial-changzhi", "field_key": "randomized_n", "status": "supported", "expected_values": [{"value": "608", "source_ids": ["changzhi-final"]}]},
+        {"entity_id": "trial-changzhi", "field_key": "intervention", "status": "supported", "expected_values": [{"value": "potassium-enriched salt substitute", "source_ids": ["changzhi-final"]}]},
+        {"entity_id": "trial-changzhi", "field_key": "primary_outcome", "status": "supported", "expected_values": [{"value": "change in systolic blood pressure", "source_ids": ["changzhi-final"]}]},
+        {"entity_id": "trial-changzhi", "field_key": "withdrawals_n", "status": "nr", "expected_values": []},
+
+        {"entity_id": "trial-tone", "field_key": "publication_year", "status": "supported", "expected_values": [{"value": "1998", "source_ids": ["review-roster"]}]},
+        {"entity_id": "trial-tone", "field_key": "randomized_n", "status": "supported", "expected_values": [{"value": "975", "source_ids": ["tone-final"]}]},
+        {"entity_id": "trial-tone", "field_key": "intervention", "status": "supported", "expected_values": [{"value": "reduced-sodium diet", "source_ids": ["tone-final"]}]},
+        {"entity_id": "trial-tone", "field_key": "primary_outcome", "status": "supported", "expected_values": [{"value": "recurrence of hypertension", "source_ids": ["tone-final"]}]},
+        {"entity_id": "trial-tone", "field_key": "withdrawals_n", "status": "conflict", "expected_values": [{"value": "87", "source_ids": ["tone-final"]}, {"value": "91", "source_ids": ["tone-appendix"]}]},
+
+        {"entity_id": "trial-ssass", "field_key": "publication_year", "status": "supported", "expected_values": [{"value": "2021", "source_ids": ["review-roster"]}]},
+        {"entity_id": "trial-ssass", "field_key": "randomized_n", "status": "supported", "expected_values": [{"value": "20,995", "source_ids": ["ssass-final"]}]},
+        {"entity_id": "trial-ssass", "field_key": "intervention", "status": "supported", "expected_values": [{"value": "75% sodium chloride and 25% potassium chloride salt substitute", "source_ids": ["ssass-final"]}]},
+        {"entity_id": "trial-ssass", "field_key": "primary_outcome", "status": "supported", "expected_values": [{"value": "stroke", "source_ids": ["ssass-protocol", "ssass-final"]}]},
+        {"entity_id": "trial-ssass", "field_key": "withdrawals_n", "status": "supported", "expected_values": [{"value": "321", "source_ids": ["ssass-final"]}]}
+      ]
+    }
+  ]
+}
