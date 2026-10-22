@@ -252,8 +252,13 @@ class ResearchService:
                     if self._checkpoint_context is not None:
                         await self._checkpoint_context.__aexit__(exc_type, exc, tb)
                 finally:
-                    if self.memory is not None:
-                        await self.memory.close()
+                    try:
+                        if self.memory is not None:
+                            await self.memory.close()
+                    finally:
+                        knowledge = getattr(getattr(self._graph, "worker", None), "knowledge", None)
+                        if knowledge is not None and hasattr(knowledge, "close"):
+                            await asyncio.to_thread(knowledge.close)
 
         cleanup_task = asyncio.create_task(cleanup(), name="research-service-close")
         try:

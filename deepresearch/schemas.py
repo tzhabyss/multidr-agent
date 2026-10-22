@@ -641,6 +641,7 @@ class FetchedDocument(StrictModel):
     redirect_chain: list[str] = Field(default_factory=list)
     static_attempts: int = 0
     dynamic_attempted: bool = False
+    knowledge_ref: dict[str, str] = Field(default_factory=dict)
     retrieval_method: Literal[
         "direct",
         "alternative",
@@ -1090,7 +1091,7 @@ class ExtractionTrace(StrictModel):
     output_tokens: int = 0
     duration_seconds: float = 0.0
     completion_deadline_at: float | None = None
-    selection_mode: Literal["legacy", "focused", "fallback_full"] = "legacy"
+    selection_mode: Literal["legacy", "focused", "fallback_full", "rag"] = "legacy"
     focus_terms: list[str] = Field(default_factory=list)
     accepted_count: int = 0
     rejected_candidates: list[dict[str, Any]] = Field(default_factory=list)

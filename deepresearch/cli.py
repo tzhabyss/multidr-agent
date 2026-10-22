@@ -52,6 +52,15 @@ def _parser() -> argparse.ArgumentParser:
         description="Evidence-driven multi-round Deep Research agent",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    knowledge = subparsers.add_parser("knowledge", help="import or search the local research library")
+    knowledge.add_argument("action", choices=("ingest", "search", "reindex", "jobs", "retry", "reconcile"))
+    knowledge.add_argument("value", nargs="?", help="file path or search query")
+    knowledge.add_argument("--config", type=Path)
+    knowledge.add_argument("--db", type=Path)
+    knowledge.add_argument("--collection")
+    knowledge.add_argument("--document-id", help="stable logical identity across renamed versions")
+    knowledge.add_argument("--as-of", help="snapshot capture cutoff, ISO timestamp with timezone")
+    knowledge.add_argument("--lexical-only", action="store_true")
     monitor = subparsers.add_parser("monitor", help="summarize persisted run operations without external calls")
     monitor.add_argument("run_dir", type=Path)
     trace = subparsers.add_parser("trace", help="read persisted run operations")
@@ -451,6 +460,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     _configure_stdio_utf8()
     args = _parser().parse_args(argv)
     try:
+        if args.command == "knowledge":
+            from .knowledge import create_store
+            from .memory_system.embeddings import HashEmbeddingProvider
+            config = load_runtime_config(args.config).knowledge
+            store = create_store(config, path=args.db,
+                                 provider=HashEmbeddingProvider() if args.lexical_only else None)
+            if args.action == "search" and config.reranker_model and not args.lexical_only:
+                from .knowledge.reranker import CrossEncoderReranker
+                store.reranker = CrossEncoderReranker(config.reranker_model, config.reranker_timeout_seconds)
+            collection = args.collection or config.collection
+            if args.action in {"ingest", "search", "retry"} and not args.value:
+                raise ValueError("knowledge ingest/search requires a file path or query")
+            if args.action in {"jobs", "retry", "reconcile"} and config.backend != "mongo_milvus":
+                raise ValueError("jobs/retry/reconcile require the mongo_milvus backend")
+            if args.document_id and config.backend != "mongo_milvus":
+                raise ValueError("--document-id requires the mongo_milvus backend")
+            if args.action == "ingest":
+                kwargs = {"document_id": args.document_id} if args.document_id else {}
+                result = store.ingest_file(args.value, collection=collection, **kwargs)
+            elif args.action == "search":
+                result = store.search(args.value, collection=collection, as_of=args.as_of,
+                                      mode="bm25" if args.lexical_only else "hybrid")
+            elif args.action == "retry":
+                result = store.retry(args.value)
+            else:
+                result = getattr(store, args.action)(collection=collection)
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            return 0
         if args.command == "web":
             import uvicorn
 

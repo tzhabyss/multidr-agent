@@ -2443,6 +2443,21 @@ class ResearchGraph:
         citation_policy = profile.runtime_policy.semantic_citation_gate
         strict_citations = citation_policy == "strict"
         citation_gate_enforced = citation_policy in {"repair", "strict"}
+        # Third gate for library sources: refetch the authoritative publication state
+        # immediately before publication, even when prose citations are advisory.
+        from .knowledge.verification import invalid_library_sources, exclude_stale_citations
+        cited_links = {c.link_id for c in citations}
+        cited_evidence = {link.evidence_id for link in links if link.link_id in cited_links}
+        cited_sources = {ev.source_id for ev in evidence if ev.evidence_id in cited_evidence}
+        invalid_library = await asyncio.to_thread(
+            invalid_library_sources, getattr(getattr(self, "worker", None), "knowledge", None),
+            [source for source in sources if source.source_id in cited_sources], snapshots)
+        invalid_evidence = {ev.evidence_id for ev in evidence if ev.source_id in invalid_library}
+        invalid_links = {link.link_id for link in links if link.evidence_id in invalid_evidence}
+        stale_citations = {c.citation_id for c in citations if c.link_id in invalid_links}
+        if stale_citations:
+            output = exclude_stale_citations(output, stale_citations)
+            citations = [c for c in citations if c.citation_id not in stale_citations]
         gate = validate_citations(
             output,
             sources,
@@ -2454,6 +2469,12 @@ class ResearchGraph:
             require_all_factual_citations=strict_citations,
         )
         status = output.run_status
+        if invalid_library:
+            gate = gate.model_copy(update={"passed": False, "violations": [
+                *gate.violations, *[f"Library source is archived, changed, or unavailable: {sid}" for sid in sorted(invalid_library)]]})
+            if status == RunStatus.COMPLETED_VERIFIED:
+                status = RunStatus.COMPLETED_PARTIAL
+                output = output.model_copy(update={"run_status": status})
         if (
             citation_gate_enforced
             and not gate.passed

@@ -98,6 +98,7 @@ def records_from_document(
             "independent_domain": independent_domain(document.final_url),
             "local_path": urlsplit(document.final_url).path if is_local else "",
             "retrieval_method": document.retrieval_method,
+            **({"knowledge_ref": document.knowledge_ref} if document.knowledge_ref else {}),
         },
     )
     snapshot = SourceSnapshot(source_id=source_id, content=document.content, content_hash=content_hash)

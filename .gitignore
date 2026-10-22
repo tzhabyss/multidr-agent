@@ -70,3 +70,23 @@ secrets.*
 # Benchmark-derived local fixtures; review licensing/content before publishing
 /evaluation/fixtures/skill_evolution/historical-*
 /evaluation/fixtures/skill_evolution/preflight-drb2-*
+
+# Local research library implementation guide
+!/docs/knowledge-rag.md
+
+# Third-party reference material and personal interview preparation stay local.
+/wenshu-project/
+/wenshu-project.zip
+/tools/fc27_mcp/
+/手撕代码_面试准备.ipynb
+/行政助手agent代码运行与解读.mp4
+
+# Publish RAG code, summaries, and the reviewed frozen fixture only.
+# Raw model responses, machine-specific protocols, and test logs remain local.
+/evaluation/knowledge_rag/**
+!/evaluation/knowledge_rag/**/
+!/evaluation/knowledge_rag/**/*.py
+!/evaluation/knowledge_rag/**/*.md
+!/evaluation/knowledge_rag/v3/corpus.json
+!/evaluation/knowledge_rag/v3/cases.jsonl
+!/evaluation/knowledge_rag/v3/manifest.json

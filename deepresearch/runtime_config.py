@@ -676,6 +676,35 @@ def _default_research_modes() -> dict[str, ResearchModeRuntimeConfig]:
     }
 
 
+class KnowledgeRuntimeConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    backend: Literal["sqlite", "mongo_milvus"] = "sqlite"
+    path: str = ".runtime/knowledge.sqlite"
+    mongo_uri: str = "mongodb://127.0.0.1:27017"
+    mongo_database: str = "deepresearch_knowledge"
+    milvus_uri: str = "http://127.0.0.1:19530"
+    milvus_token_env: str = "MILVUS_TOKEN"
+    parser: Literal["native", "mineru"] = "native"
+    embedding_model: Literal["intfloat/multilingual-e5-small", "BAAI/bge-small-zh-v1.5", "thenlper/gte-small-zh"] = "intfloat/multilingual-e5-small"
+    embedding_revision: str | None = None
+    collection: str = "library"
+    contextual_index: bool = False
+    document_context_path: str | None = None
+    precontext_max_chars: int = Field(default=6000, ge=2000, le=24000)
+    max_passages_per_source: int = Field(default=2, ge=1, le=4)
+    top_k: int = Field(default=3, ge=1, le=8)
+    timeout_seconds: float = Field(default=30, gt=0, le=120)
+    reranker_model: str | None = None
+    reranker_timeout_seconds: float = Field(default=5, gt=0, le=30)
+    reranker_neighbor_chars: int = Field(default=0, ge=0, le=300)
+    candidate_policy: Literal["rrf", "quota_equal", "quota_dense", "quota_lexical"] = "rrf"
+    query_rewrite_enabled: bool = False
+    query_rewrite_timeout_seconds: float = Field(default=15, gt=0, le=30)
+    query_rewrite_fusion: Literal["rrf", "anchored_union"] = "rrf"
+
+
 class RuntimeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -683,6 +712,7 @@ class RuntimeConfig(BaseModel):
 
     llm_output_tokens: LLMOutputTokenConfig
     timezone: str = "Asia/Shanghai"
+    knowledge: KnowledgeRuntimeConfig = Field(default_factory=KnowledgeRuntimeConfig)
     memory: "MemoryRuntimeConfig" = Field(default_factory=lambda: MemoryRuntimeConfig())
     mcp: "MCPRuntimeConfig" = Field(default_factory=lambda: MCPRuntimeConfig())
     default_mode: ResearchModeName = "standard"

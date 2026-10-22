@@ -10,6 +10,7 @@
 
 - [技术报告](docs/submission/TECHNICAL_REPORT.md)
 - [记忆系统说明](docs/memory-system.md)
+- [本地研究资料库 RAG 与评测](docs/knowledge-rag.md)
 - [MCP 集成说明](docs/mcp.md)
 - [模型与运行模式](docs/model-modes.md)
 - [密钥与安全策略](SECURITY.md)

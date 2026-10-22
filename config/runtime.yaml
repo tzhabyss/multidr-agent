@@ -1,6 +1,40 @@
 # Project timestamps and CLI clock use China Standard Time by default.
 timezone: Asia/Shanghai
 
+# Local research library; enable after importing documents with `knowledge ingest`.
+knowledge:
+  enabled: false
+  backend: mongo_milvus
+  mongo_uri: mongodb://127.0.0.1:27017
+  mongo_database: deepresearch_knowledge
+  milvus_uri: http://127.0.0.1:19530
+  milvus_token_env: MILVUS_TOKEN
+  # native: UTF-8, text PDF and DOCX. mineru: local MinerU for PDF structure/OCR.
+  parser: native
+  embedding_model: intfloat/multilingual-e5-small
+  embedding_revision: null
+  path: .runtime/knowledge.sqlite
+  collection: library
+  # Optional metadata-enriched index; compare on your own document corpus.
+  contextual_index: false
+  # Optional frozen, source-hash-bound descriptions; apply with knowledge reindex.
+  document_context_path: null
+  precontext_max_chars: 6000
+  max_passages_per_source: 2
+  top_k: 3
+  timeout_seconds: 30
+  # Optional local CrossEncoder; timeout falls back to the RRF order.
+  reranker_model: null
+  reranker_timeout_seconds: 5
+  # Optional source characters on EACH side, for reranking only; evidence stays exact.
+  reranker_neighbor_chars: 0
+  # Optional per-channel reservations within the existing reranking budget.
+  candidate_policy: rrf
+  # Query-only LLM rewrite; preserves original retrieval and reranks against it.
+  query_rewrite_enabled: false
+  query_rewrite_timeout_seconds: 15
+  query_rewrite_fusion: rrf
+
 # Operational telemetry never changes provider order or evolution promotion.
 governance:
   enabled: true
