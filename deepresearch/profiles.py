@@ -45,16 +45,16 @@ GENERAL_PROFILE = Profile(
         mode_overrides={
             "standard": {
                 "max_workers": 8,
-                "max_total_searches": 200,
-                "max_total_fetches": 336,
-                "max_wall_time_seconds": 3600,
-                "research_soft_wall_time_seconds": 3300,
+                "max_total_searches": 100,
+                "max_total_fetches": 320,
+                "max_wall_time_seconds": 2400,
+                "research_soft_wall_time_seconds": 2100,
                 "writer_wall_time_seconds": 1220,
                 "reviewer_wall_time_seconds": 1020,
                 "writer_rewrite_wall_time_seconds": 1220,
                 "reviewer_recheck_wall_time_seconds": 500,
                 "artifact_reserve_seconds": 60,
-                "max_total_wall_time_seconds": 7620,
+                "max_total_wall_time_seconds": 6420,
             }
         },
     ),
@@ -84,16 +84,16 @@ DRB_EVALUATION_PROFILE = Profile(
         mode_overrides={
             "standard": {
                 "max_workers": 8,
-                "max_total_searches": 200,
-                "max_total_fetches": 336,
-                "max_wall_time_seconds": 3600,
-                "research_soft_wall_time_seconds": 3300,
+                "max_total_searches": 100,
+                "max_total_fetches": 320,
+                "max_wall_time_seconds": 2400,
+                "research_soft_wall_time_seconds": 2100,
                 "writer_wall_time_seconds": 1220,
                 "reviewer_wall_time_seconds": 1020,
                 "writer_rewrite_wall_time_seconds": 1220,
                 "reviewer_recheck_wall_time_seconds": 500,
                 "artifact_reserve_seconds": 60,
-                "max_total_wall_time_seconds": 7620,
+                "max_total_wall_time_seconds": 6420,
             }
         },
     ),

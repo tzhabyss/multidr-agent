@@ -551,16 +551,16 @@ def _default_agent_profiles() -> dict[str, AgentProfileRuntimeConfig]:
             mode_overrides={
                 "standard": ResearchModeOverrideRuntimeConfig(
                     max_workers=8,
-                    max_total_searches=200,
-                    max_total_fetches=336,
-                    max_wall_time_seconds=4080,
-                    research_soft_wall_time_seconds=3780,
+                    max_total_searches=100,
+                    max_total_fetches=320,
+                    max_wall_time_seconds=2400,
+                    research_soft_wall_time_seconds=2100,
                     writer_wall_time_seconds=1220,
                     reviewer_wall_time_seconds=1020,
                     writer_rewrite_wall_time_seconds=1220,
                     reviewer_recheck_wall_time_seconds=500,
                     artifact_reserve_seconds=60,
-                    max_total_wall_time_seconds=8100,
+                    max_total_wall_time_seconds=6420,
                 )
             },
         ),
@@ -584,16 +584,16 @@ def _default_agent_profiles() -> dict[str, AgentProfileRuntimeConfig]:
             mode_overrides={
                 "standard": ResearchModeOverrideRuntimeConfig(
                     max_workers=8,
-                    max_total_searches=200,
-                    max_total_fetches=336,
-                    max_wall_time_seconds=4080,
-                    research_soft_wall_time_seconds=3780,
+                    max_total_searches=100,
+                    max_total_fetches=320,
+                    max_wall_time_seconds=2400,
+                    research_soft_wall_time_seconds=2100,
                     writer_wall_time_seconds=1220,
                     reviewer_wall_time_seconds=1020,
                     writer_rewrite_wall_time_seconds=1220,
                     reviewer_recheck_wall_time_seconds=500,
                     artifact_reserve_seconds=60,
-                    max_total_wall_time_seconds=8100,
+                    max_total_wall_time_seconds=6420,
                 )
             },
         ),
@@ -637,11 +637,14 @@ def _default_research_modes() -> dict[str, ResearchModeRuntimeConfig]:
             max_rounds=1,
             max_worker_iterations=2,
             max_workers=2,
-            max_total_searches=12,
-            max_total_fetches=20,
-            max_wall_time_seconds=300,
+            max_total_searches=16,
+            max_total_fetches=32,
+            max_wall_time_seconds=600,
         ),
-        "standard": ResearchModeRuntimeConfig(),
+        "standard": ResearchModeRuntimeConfig(
+            max_rounds=4, max_workers=8, max_total_searches=100,
+            max_total_fetches=320, max_wall_time_seconds=2400,
+        ),
         "deep": ResearchModeRuntimeConfig(
             stages=StageModelRuntimeConfig(
                 clarifier="default",
@@ -649,10 +652,10 @@ def _default_research_modes() -> dict[str, ResearchModeRuntimeConfig]:
             ),
             max_rounds=4,
             max_worker_iterations=6,
-            max_workers=12,
-            max_total_searches=192,
-            max_total_fetches=288,
-            max_wall_time_seconds=1800,
+            max_workers=10,
+            max_total_searches=200,
+            max_total_fetches=480,
+            max_wall_time_seconds=3600,
         ),
         "max": ResearchModeRuntimeConfig(
             stages=StageModelRuntimeConfig(
@@ -668,10 +671,10 @@ def _default_research_modes() -> dict[str, ResearchModeRuntimeConfig]:
             ),
             max_rounds=6,
             max_worker_iterations=8,
-            max_workers=16,
+            max_workers=12,
             max_total_searches=320,
-            max_total_fetches=480,
-            max_wall_time_seconds=3600,
+            max_total_fetches=640,
+            max_wall_time_seconds=4800,
         ),
     }
 
@@ -680,16 +683,27 @@ class KnowledgeRuntimeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = False
-    backend: Literal["sqlite", "mongo_milvus"] = "sqlite"
+    backend: Literal["sqlite", "milvus", "mongo_milvus"] = "milvus"
     path: str = ".runtime/knowledge.sqlite"
     mongo_uri: str = "mongodb://127.0.0.1:27017"
     mongo_database: str = "deepresearch_knowledge"
     milvus_uri: str = "http://127.0.0.1:19530"
     milvus_token_env: str = "MILVUS_TOKEN"
-    parser: Literal["native", "mineru"] = "native"
+    milvus_namespace: str = "deepresearch_knowledge"
+    milvus_lock_dir: str = ".runtime/knowledge-locks"
+    parser: Literal["auto", "native", "mineru"] = "auto"
+    ocr_backend: Literal["auto", "vision", "tesseract", "disabled"] = "auto"
+    ocr_languages: str = "zh-Hans,en-US"
+    ocr_timeout_seconds: float = Field(default=60, gt=0, le=300)
+    parse_timeout_seconds: float = Field(default=300, gt=0, le=1800)
+    parse_max_pages: int = Field(default=200, ge=1, le=2000)
+    parse_allow_partial: bool = False
     embedding_model: Literal["intfloat/multilingual-e5-small", "BAAI/bge-small-zh-v1.5", "thenlper/gte-small-zh"] = "intfloat/multilingual-e5-small"
     embedding_revision: str | None = None
+    embedding_device: Literal["cpu", "cuda", "mps"] | None = None
     collection: str = "library"
+    # Opt-in cross-run source library, isolated by user + project request scope.
+    persist_fetched_sources: bool = False
     contextual_index: bool = False
     document_context_path: str | None = None
     precontext_max_chars: int = Field(default=6000, ge=2000, le=24000)
@@ -697,6 +711,9 @@ class KnowledgeRuntimeConfig(BaseModel):
     top_k: int = Field(default=3, ge=1, le=8)
     timeout_seconds: float = Field(default=30, gt=0, le=120)
     reranker_model: str | None = None
+    reranker_revision: str | None = None
+    reranker_device: Literal["cpu", "cuda", "mps"] | None = None
+    reranker_max_length: int = Field(default=512, ge=128, le=8192)
     reranker_timeout_seconds: float = Field(default=5, gt=0, le=30)
     reranker_neighbor_chars: int = Field(default=0, ge=0, le=300)
     candidate_policy: Literal["rrf", "quota_equal", "quota_dense", "quota_lexical"] = "rrf"

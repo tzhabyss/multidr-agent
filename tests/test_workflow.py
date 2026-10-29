@@ -978,7 +978,7 @@ async def test_artifacts_include_replayable_events_snapshots_and_valid_hashes(tm
     assert json.loads((run_dir / "details" / "evidence" / "source-snapshots.json").read_text(encoding="utf-8"))
 
     manifest = json.loads((run_dir / "details" / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["budget"]["max_total_searches"] == 200
+    assert manifest["budget"]["max_total_searches"] == 100
     for name, expected_hash in manifest["artifact_hashes"].items():
         actual_hash = hashlib.sha256((run_dir / name).read_bytes()).hexdigest()
         assert actual_hash == expected_hash

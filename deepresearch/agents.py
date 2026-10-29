@@ -3030,26 +3030,42 @@ class ResearchWorker:
         )
         self.domain_circuit = SharedDomainCircuitBreaker(failure_threshold=2)
         self.knowledge = None
+        self.knowledge_initialization_error = None
         if self.runtime_config.knowledge.enabled:
             from .knowledge import create_store
             config = self.runtime_config.knowledge
             reranker = None
             if config.reranker_model:
                 from .knowledge.reranker import CrossEncoderReranker
-                reranker = CrossEncoderReranker(config.reranker_model, config.reranker_timeout_seconds)
-            self.knowledge = create_store(config, reranker=reranker)
+                reranker = CrossEncoderReranker.from_config(config)
+            try:
+                self.knowledge = create_store(config, reranker=reranker)
+            except Exception as exc:
+                # Optional retrieval/storage cannot prevent ordinary research.
+                self.knowledge_initialization_error = type(exc).__name__
 
-    async def _knowledge_windows(self, document, task, run_id):
+    async def _knowledge_windows(self, document, task, run_id, *, state=None, published_at=None):
         """Index fetched snapshots and retrieve task-specific verbatim passages."""
         if self.knowledge is None:
             return []
         config = self.runtime_config.knowledge
         collection = f"run:{run_id}"
+        metadata = None
+        if config.persist_fetched_sources:
+            from .knowledge.research_sources import capture_metadata, research_collection
+            metadata = capture_metadata(document, state, published_at)
+            if metadata is not None:
+                collection = research_collection(state)
         query = " ".join([task.objective, *task.key_questions, *task.queries, *task.target_field_keys])
 
         def retrieve():
+            options = {"metadata": metadata, "refresh_capture": True} if metadata is not None else {}
             result = self.knowledge.ingest(document.content, uri=document.final_url,
-                                           title=document.title, collection=collection)
+                                           title=document.title, collection=collection, **options)
+            if result.get("superseded_capture"):
+                # The active snapshot is newer, and may have different offsets.
+                # Use the ordinary extractor on this fetched document instead.
+                return []
             return self.knowledge.windows(query, snapshot_id=result["snapshot_id"],
                                           collection=collection, limit=config.top_k)
 
@@ -3060,6 +3076,12 @@ class ResearchWorker:
         if self.knowledge is None:
             return {}, [], {}
         config = self.runtime_config.knowledge
+        collections = [config.collection]
+        if config.persist_fetched_sources:
+            from .knowledge.research_sources import research_collection
+            scoped = research_collection(state)
+            if scoped:
+                collections.append(scoped)
 
         def allow_source(snapshot):
             if not state:
@@ -3104,7 +3126,7 @@ class ResearchWorker:
                 collection=config.collection, limit=config.top_k,
                 max_chars=config.precontext_max_chars,
                 per_source=config.max_passages_per_source, allow_source=allow_source,
-                retrieval_metadata=rewrite_metadata)
+                retrieval_metadata=rewrite_metadata, collections=collections)
             candidates, documents = [], {}
             for passage in pack["passages"]:
                 snapshot = snapshots[passage["snapshot_id"]]
@@ -3113,7 +3135,7 @@ class ResearchWorker:
                 document = FetchedDocument(requested_url=snapshot["uri"], final_url=snapshot["uri"],
                     title=snapshot["title"], content=snapshot["content"], content_type="text/plain",
                     http_status=200, fetched_at=snapshot["created_at"], knowledge_ref={
-                        "snapshot_id": passage["snapshot_id"], "collection": config.collection})
+                        "snapshot_id": passage["snapshot_id"], "collection": passage["collection"]})
                 documents[document.final_url] = document.model_dump()
                 candidates.append((make_id("qry", task.task_id, "knowledge"), SearchHit(
                     title=document.title, url=document.final_url, snippet=passage["content"],
@@ -4757,7 +4779,8 @@ class ResearchWorker:
         rag_selected = False
         if self.knowledge is not None and document.content.strip():
             try:
-                rag_windows = await self._knowledge_windows(document, task, state["run_id"])
+                rag_windows = await self._knowledge_windows(document, task, state["run_id"],
+                    state=state, published_at=outcome.get("published_at"))
                 if rag_windows:
                     focused_windows = rag_windows
                     rag_selected = True
@@ -5140,6 +5163,8 @@ class ResearchWorker:
             return allowed, published_at
 
         knowledge_hits, knowledge_documents = [], {}
+        if self.knowledge_initialization_error:
+            gaps.append(f"Knowledge unavailable: {self.knowledge_initialization_error}")
         if self.knowledge is not None:
             precontext_started = time.monotonic()
             emit_progress("knowledge_precontext_started", phase="knowledge", agent_role="worker",
@@ -6183,7 +6208,8 @@ class ResearchWorker:
                 selected_windows = [merged_window] if merged_window is not None else []
                 if self.knowledge is not None and outcome.get("extraction_task") is None and document.content.strip():
                     try:
-                        rag_windows = await self._knowledge_windows(document, task, run_id)
+                        rag_windows = await self._knowledge_windows(document, task, run_id,
+                            state=state, published_at=published_at)
                         if rag_windows:
                             selected_windows = rag_windows + selected_windows
                     except Exception as exc:

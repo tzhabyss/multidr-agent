@@ -30,8 +30,9 @@ dependencies = [
 
 [project.optional-dependencies]
 memory = ["sentence-transformers>=3,<6"]
-knowledge = ["pymongo>=4.10,<5", "pymilvus>=2.5,<2.6", "sentence-transformers>=3,<6", "python-docx>=1.1,<2"]
-knowledge-local = ["pymongo>=4.10,<5", "pymilvus>=2.5,<2.6", "milvus-lite>=2.5,<2.6", "setuptools>=75,<81", "sentence-transformers>=3,<6", "python-docx>=1.1,<2"]
+knowledge = ["pymilvus>=2.5,<2.6", "filelock>=3.16,<4", "sentence-transformers>=3,<6", "python-docx>=1.1,<2"]
+knowledge-local = ["pymilvus>=2.5,<2.6", "filelock>=3.16,<4", "milvus-lite>=2.5,<2.6", "setuptools>=75,<81", "sentence-transformers>=3,<6", "python-docx>=1.1,<2"]
+knowledge-legacy = ["pymongo>=4.10,<5"]
 search = ["ddgs>=9,<10"]
 documents = ["pypdf>=5,<6", "python-docx>=1.1,<2"]
 browser = ["scrapling[fetchers]>=0.4.11,<0.5"]
@@ -45,6 +46,7 @@ deepresearch-eval = "evaluation.cli:main"
 include = ["deepresearch*", "evaluation*"]
 
 [tool.setuptools.package-data]
+"deepresearch.knowledge" = ["*.swift"]
 "deepresearch.web" = ["static/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]

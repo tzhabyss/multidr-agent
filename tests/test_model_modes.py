@@ -40,6 +40,6 @@ async def test_deep_mode_reaches_scope_budget_and_output(tmp_path):
     options = state.values["request"]["options"]
     assert options["max_rounds"] == 4
     assert options["max_worker_iterations"] == 6
-    assert options["max_workers"] == 12
-    assert state.values["run_budget"]["max_total_searches"] == 192
+    assert options["max_workers"] == 10
+    assert state.values["run_budget"]["max_total_searches"] == 200
     assert state.values["structured_output"]["mode"] == "deep"

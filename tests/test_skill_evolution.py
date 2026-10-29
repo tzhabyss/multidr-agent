@@ -237,6 +237,9 @@ def test_skill_evolution_is_only_added_to_audit_when_observation_ran():
 @pytest.mark.asyncio
 async def test_observe_mode_is_an_isolated_end_to_end_side_path(tmp_path: Path):
     config = load_runtime_config(PROJECT_ROOT / "config" / "runtime.yaml")
+    # This observes FakeFetcher/FakeLLM artifacts; it must not initialize the
+    # deployment's optional external knowledge database.
+    config.knowledge.enabled = False
     config = config.model_copy(
         update={
             "skill_evolution": config.skill_evolution.model_copy(

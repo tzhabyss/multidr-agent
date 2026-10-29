@@ -386,11 +386,21 @@ async def test_wave_budget_is_dynamic_and_capped_at_900_seconds(
 ):
     now = 10_000.0
     monkeypatch.setattr("deepresearch.graph.time.time", lambda: now)
+    # Give this cap test an explicit ample budget, independent of the shipped
+    # Standard preset (whose shorter deadline correctly yields smaller waves).
+    config = load_runtime_config()
+    raw = config.model_dump(mode="json")
+    raw["agent_profiles"]["general_research"]["mode_overrides"]["standard"].update(
+        max_wall_time_seconds=4080,
+        research_soft_wall_time_seconds=3780,
+        max_total_wall_time_seconds=8100,
+    )
     service = ResearchService.in_memory(
         llm=FakeLLM(),
         search_backend=FakeSearchBackend(),
         fetcher=FakeFetcher(),
         artifact_root=tmp_path / "dynamic-budget",
+        runtime_config=type(config).model_validate(raw),
     )
     tasks = _four_wave_tasks()
     scope = ResearchScope(

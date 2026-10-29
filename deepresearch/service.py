@@ -56,6 +56,7 @@ from .skill_evolution import (
     VerifierSuiteRelease,
 )
 from .state import merge_events, merge_usage
+from .worker_checkpoints import WorkerCheckpointStore
 
 
 class ResearchService:
@@ -206,6 +207,10 @@ class ResearchService:
             workspace=ArtifactWorkspace(self.artifact_root),
             evolution_store=episode_store,
             checkpointer=checkpointer,
+            worker_checkpoint_store=(
+                WorkerCheckpointStore(self.checkpoint_path.with_suffix(".workers.sqlite"))
+                if self.injected_checkpointer is None else None
+            ),
         )
         candidate_config = self.runtime_config.skill_evolution.candidate_generation
         candidate_store = CandidateStore(evolution_root)

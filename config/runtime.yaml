@@ -3,33 +3,48 @@ timezone: Asia/Shanghai
 
 # Local research library; enable after importing documents with `knowledge ingest`.
 knowledge:
-  enabled: false
-  backend: mongo_milvus
-  mongo_uri: mongodb://127.0.0.1:27017
-  mongo_database: deepresearch_knowledge
+  enabled: true
+  backend: milvus
   milvus_uri: http://127.0.0.1:19530
   milvus_token_env: MILVUS_TOKEN
-  # native: UTF-8, text PDF and DOCX. mineru: local MinerU for PDF structure/OCR.
-  parser: native
-  embedding_model: intfloat/multilingual-e5-small
-  embedding_revision: null
+  milvus_namespace: deepresearch_knowledge
+  # All writers must share this directory on one host.
+  milvus_lock_dir: .runtime/knowledge-locks
+  # auto: per-page text extraction + local OCR. native: text-only, rejects OCR-required pages.
+  # mineru: separately installed local MinerU adapter for PDF structure/OCR.
+  parser: auto
+  ocr_backend: auto
+  ocr_languages: zh-Hans,en-US
+  ocr_timeout_seconds: 60
+  parse_timeout_seconds: 300
+  parse_max_pages: 200
+  parse_allow_partial: false
+  embedding_model: thenlper/gte-small-zh
+  embedding_revision: af7bd46fbb00b3a6963c8dd7f1786ddfbfbe973a
+  embedding_device: cpu
   path: .runtime/knowledge.sqlite
   collection: library
+  # Requires enabled=true. Automatically retain successful original HTTP fetches
+  # in a user/project-scoped collection, searched alongside the imported library.
+  persist_fetched_sources: false
   # Optional metadata-enriched index; compare on your own document corpus.
   contextual_index: false
   # Optional frozen, source-hash-bound descriptions; apply with knowledge reindex.
-  document_context_path: null
+  document_context_path: evaluation/knowledge_rag/document_context/contexts.json
   precontext_max_chars: 6000
   max_passages_per_source: 2
   top_k: 3
-  timeout_seconds: 30
+  timeout_seconds: 90
   # Optional local CrossEncoder; timeout falls back to the RRF order.
-  reranker_model: null
-  reranker_timeout_seconds: 5
+  reranker_model: BAAI/bge-reranker-v2-m3
+  reranker_revision: 953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e
+  reranker_device: cpu
+  reranker_max_length: 512
+  reranker_timeout_seconds: 30
   # Optional source characters on EACH side, for reranking only; evidence stays exact.
   reranker_neighbor_chars: 0
   # Optional per-channel reservations within the existing reranking budget.
-  candidate_policy: rrf
+  candidate_policy: quota_dense
   # Query-only LLM rewrite; preserves original retrieval and reranks against it.
   query_rewrite_enabled: false
   query_rewrite_timeout_seconds: 15
@@ -255,9 +270,9 @@ research_modes:
     max_rounds: 1
     max_worker_iterations: 2
     max_workers: 2
-    max_total_searches: 12
-    max_total_fetches: 20
-    max_wall_time_seconds: 300
+    max_total_searches: 16
+    max_total_fetches: 32
+    max_wall_time_seconds: 600
   standard:
     stages:
       clarifier: lite
@@ -273,9 +288,9 @@ research_modes:
     max_rounds: 4
     max_worker_iterations: 4
     max_workers: 8
-    max_total_searches: 200
-    max_total_fetches: 336
-    max_wall_time_seconds: 1500
+    max_total_searches: 100
+    max_total_fetches: 320
+    max_wall_time_seconds: 2400
   deep:
     stages:
       clarifier: default
@@ -290,10 +305,10 @@ research_modes:
       reviewer: craft
     max_rounds: 4
     max_worker_iterations: 6
-    max_workers: 12
-    max_total_searches: 192
-    max_total_fetches: 288
-    max_wall_time_seconds: 1800
+    max_workers: 10
+    max_total_searches: 200
+    max_total_fetches: 480
+    max_wall_time_seconds: 3600
   max:
     stages:
       clarifier: default
@@ -308,10 +323,10 @@ research_modes:
       reviewer: craft
     max_rounds: 6
     max_worker_iterations: 8
-    max_workers: 16
+    max_workers: 12
     max_total_searches: 320
-    max_total_fetches: 480
-    max_wall_time_seconds: 3600
+    max_total_fetches: 640
+    max_wall_time_seconds: 4800
 
 # The control graph owns task dependencies, dynamic waves, and recovery. The
 # Worker ReAct loop remains responsible for local search and fetch decisions.
@@ -463,16 +478,16 @@ agent_profiles:
     mode_overrides:
       standard:
         max_workers: 8
-        max_total_searches: 200
-        max_total_fetches: 336
-        max_wall_time_seconds: 4080
-        research_soft_wall_time_seconds: 3780
+        max_total_searches: 100
+        max_total_fetches: 320
+        max_wall_time_seconds: 2400
+        research_soft_wall_time_seconds: 2100
         writer_wall_time_seconds: 1220
         reviewer_wall_time_seconds: 1020
         writer_rewrite_wall_time_seconds: 1220
         reviewer_recheck_wall_time_seconds: 500
         artifact_reserve_seconds: 60
-        max_total_wall_time_seconds: 8100
+        max_total_wall_time_seconds: 6420
   drb_evaluation:
     # Craft reviews the draft, Writer performs one full rewrite when requested,
     # and Reviewer rechecks it for material semantic or delivery defects. Citation
@@ -498,24 +513,24 @@ agent_profiles:
       web-search: [deepseek-web-search, anysearch-search]
     skill_provider_modes:
       web-search: fanout
-    # Shared high-recall Standard capacity. Search is counted in logical queries;
+    # Shared Standard capacity with measured-usage headroom. Search is counted in logical queries;
     # each query still fans out to both configured providers. New research stops
-    # at 63 minutes and in-flight work may drain until the 68-minute hard cutoff.
+    # at 35 minutes and in-flight work may drain until the 40-minute hard cutoff.
     # Initial Writer and requested rewrite each receive 1220 seconds. Reviewer
     # retains an independent 1020-second slot and recheck receives 500 seconds.
     mode_overrides:
       standard:
         max_workers: 8
-        max_total_searches: 200
-        max_total_fetches: 336
-        max_wall_time_seconds: 4080
-        research_soft_wall_time_seconds: 3780
+        max_total_searches: 100
+        max_total_fetches: 320
+        max_wall_time_seconds: 2400
+        research_soft_wall_time_seconds: 2100
         writer_wall_time_seconds: 1220
         reviewer_wall_time_seconds: 1020
         writer_rewrite_wall_time_seconds: 1220
         reviewer_recheck_wall_time_seconds: 500
         artifact_reserve_seconds: 60
-        max_total_wall_time_seconds: 8100
+        max_total_wall_time_seconds: 6420
 
 # Tool capability is role-based, never inferred from lite/default/craft.
 tool_permissions:
@@ -583,7 +598,7 @@ mcp:
       args: [-y, websearch-deepseek]
       env:
         DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
-        WEBSEARCH_MODEL: deepseek-v4-flash
+        WEBSEARCH_MODEL: deepseek-flash
         WEBSEARCH_THINKING: disabled
         WEBSEARCH_MAX_TOKENS: "4096"
       connect_timeout_seconds: 60

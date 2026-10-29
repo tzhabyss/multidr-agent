@@ -26,17 +26,26 @@ def load_cross_encoder(name, **kwargs):
 
 
 class CrossEncoderReranker:
-    def __init__(self, model: str, timeout: float = 5):
+    def __init__(self, model: str, timeout: float = 5, *, revision=None, device=None, max_length=512):
         self.name, self.timeout = model, timeout
+        self.revision, self.device, self.max_length = revision, device, max_length
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rag-rerank")
         self.lock = Lock()
         self.pending = None
         self.model = None
+        self.completed_calls = 0
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config.reranker_model, config.reranker_timeout_seconds,
+                   revision=config.reranker_revision, device=config.reranker_device,
+                   max_length=config.reranker_max_length)
 
     def __call__(self, query, hits):
         def rank():
             if self.model is None:
-                self.model = load_cross_encoder(self.name)
+                self.model = load_cross_encoder(self.name, revision=self.revision,
+                    device=self.device, trust_remote_code=False, max_length=self.max_length)
             scores = self.model.predict([(query, document_for_rerank(h)) for h in hits])
             if len(scores) != len(hits) or any(not math.isfinite(float(score)) for score in scores):
                 raise ValueError("invalid reranker scores")
@@ -46,4 +55,7 @@ class CrossEncoderReranker:
                 raise TimeoutError("reranker busy; use RRF")
             self.pending = self.executor.submit(rank)
             future = self.pending
-        return future.result(timeout=self.timeout)
+        ranked = future.result(timeout=self.timeout)
+        with self.lock:
+            self.completed_calls += 1
+        return ranked

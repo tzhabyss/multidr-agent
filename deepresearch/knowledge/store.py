@@ -10,6 +10,7 @@ import json
 import math
 import re
 import sqlite3
+import uuid
 from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -69,12 +70,14 @@ def features(text: str) -> list[str]:
 
 
 class KnowledgeStore:
-    def __init__(self, path: str | Path, *, provider=None, reranker: Callable | None = None, contextual: bool = False):
+    def __init__(self, path: str | Path, *, provider=None, reranker: Callable | None = None, contextual: bool = False, parser="auto", parse_options=None):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.provider = provider or ResilientEmbeddingProvider()
         self.reranker = reranker
         self.contextual = contextual
+        self.parser = parser
+        self.parse_options = parse_options
         self.lock = RLock()
         with self.connect() as db:
             db.executescript("""
@@ -115,13 +118,27 @@ class KnowledgeStore:
         finally:
             db.close()
 
-    def ingest(self, content: str, *, uri: str, title: str, collection: str = "library", metadata: dict | None = None) -> dict:
+    def ingest(self, content: str, *, uri: str, title: str, collection: str = "library", metadata: dict | None = None, refresh_capture: bool = False) -> dict:
         if not content.strip() or not collection.strip():
             raise ValueError("nonempty content and collection required")
         hash_ = digest(content)
         sid = digest(json.dumps([collection, uri, hash_], ensure_ascii=False))
         # Serialize provider transitions and version publication. No partial version is visible.
         with self.lock, self.connect() as db:
+            if refresh_capture:
+                from .research_sources import capture_is_older, merge_capture_metadata
+                # Acquire the cross-process writer lock BEFORE choosing a head or
+                # embedding; late older fetches must never replace a newer head.
+                db.execute("BEGIN IMMEDIATE")
+                current = db.execute("SELECT * FROM snapshots WHERE collection=? AND uri=? AND status='active'", (collection, uri)).fetchone()
+                if current and capture_is_older(metadata or {}, json.loads(current["metadata"])):
+                    return {"snapshot_id": current["id"], "superseded_capture": True}
+                if current and current["hash"] == hash_:
+                    merged = merge_capture_metadata(json.loads(current["metadata"]), metadata or {})
+                    db.execute("UPDATE snapshots SET metadata=? WHERE id=?", (json.dumps(merged, ensure_ascii=False), current["id"]))
+                    return {"snapshot_id": current["id"], "duplicate": True, "status": "active"}
+                # A -> B -> A is a new capture, not reactivation of archived A.
+                sid = digest(json.dumps([collection, uri, hash_, uuid.uuid4().hex]))
             existing = db.execute("SELECT * FROM snapshots WHERE id=?", (sid,)).fetchone()
             if existing:
                 return {"snapshot_id": sid, "duplicate": True, "status": existing["status"]}
@@ -133,7 +150,8 @@ class KnowledgeStore:
             if len(vectors) != len(parts) or len(raw_vectors) != len(parts) or any(not v for v in [*vectors, *raw_vectors]):
                 raise ValueError("incomplete embedding batch")
             now = datetime.now(timezone.utc).isoformat()
-            db.execute("BEGIN IMMEDIATE")
+            if not refresh_capture:
+                db.execute("BEGIN IMMEDIATE")
             # Another process may have published this hash during encoding.
             existing = db.execute("SELECT status FROM snapshots WHERE id=?", (sid,)).fetchone()
             if existing:
@@ -303,17 +321,11 @@ class KnowledgeStore:
 
     def ingest_file(self, path: str | Path, *, collection: str = "library") -> dict:
         path = Path(path).resolve()
-        if path.suffix.lower() == ".pdf":
-            from pypdf import PdfReader
-            pages = [p.extract_text() or "" for p in PdfReader(path).pages]
-            content = "\n\n".join(pages)
-            offsets, position = [], 0
-            for page in pages:
-                offsets.append(position)
-                position += len(page) + 2
-            metadata = {"page_starts": offsets}
-        elif path.suffix.lower() in {".md", ".txt"}:
-            content, metadata = path.read_text(encoding="utf-8"), {}
-        else:
-            raise ValueError("supported local formats: .md, .txt, .pdf (text PDFs)")
+        from .retrieval import DocumentRetrievalMixin
+        if path.stat().st_size > 32*1024*1024:
+            raise ValueError('upload exceeds local 32 MiB limit')
+        data = path.read_bytes()
+        if len(data) > 32*1024*1024:
+            raise ValueError('upload exceeds local 32 MiB limit')
+        content, metadata = DocumentRetrievalMixin._parse(self, data, path.suffix.lower())
         return self.ingest(content, uri=path.as_uri(), title=path.name, collection=collection, metadata=metadata)

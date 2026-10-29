@@ -73,6 +73,50 @@ def seed(db):
     return db.ingest('旧版费用为100元。',uri='file:///old.md',title='制度',document_id='policy')
 
 
+@pytest.mark.asyncio
+async def test_worker_fetched_sources_cross_run_reopen_scope_and_versions(store, vector_uri, tmp_path):
+    from deepresearch.knowledge.dual_store import MongoMilvusStore
+    from deepresearch.knowledge.research_sources import research_collection
+    from tests.test_knowledge_research_sources import document, state, task, worker
+    instance = worker(tmp_path)
+    instance.knowledge = store
+    collection = research_collection(state())
+    doc = document()
+    assert await instance._knowledge_windows(doc, task(), 'run-1', state=state(), published_at='2026-10-01')
+    first = store.search('续航', collection=collection)[0]['snapshot_id']
+    calls = store.provider.calls
+    await instance._knowledge_windows(document(captured='2026-10-24T08:30:00+00:00'),
+                                     task(), 'run-2', state=state('run-2'))
+    assert store.provider.calls == calls
+    reopened = MongoMilvusStore(os.environ.get('RAG_TEST_MONGO_URI', 'mongodb://127.0.0.1:27028'),
+        database=store.db.name, milvus_uri=vector_uri, provider=store.provider, allow_degraded=True)
+    try:
+        instance.knowledge = reopened
+        pack, candidates, documents = await instance._knowledge_precontext(task(), state('run-3'))
+        assert pack['passages'][0]['snapshot_id'] == first
+        assert pack['passages'][0]['captured_at'] == doc.fetched_at
+        assert pack['passages'][0]['published_at'] == '2026-10-01'
+        assert pack['passages'][0]['requires_online_verification']
+        assert candidates == [] and documents == {}
+        assert (await instance._knowledge_precontext(task(), state(user='other')))[0]['passages'] == []
+        versions = [first]
+        for content, hour in [('产品续航为20小时。', '09'), (doc.content, '10')]:
+            await instance._knowledge_windows(document(content, f'2026-10-24T{hour}:00:00+00:00'),
+                                               task(), 'run-next', state=state('run-next'))
+            versions.append(reopened.search('续航', collection=collection)[0]['snapshot_id'])
+        assert len(set(versions)) == 3
+        assert reopened.snapshot(versions[-1], collection=collection)['supersedes'] == versions[-2]
+        assert reopened.snapshot(first, collection=collection)['status'] == 'archived'
+        late = await instance._knowledge_windows(document('旧说明续航为1小时。', '2026-10-24T07:00:00+00:00'),
+                                                 task(), 'run-late', state=state('run-late'))
+        assert late == []
+        assert reopened.search('续航', collection=collection)[0]['snapshot_id'] == versions[-1]
+    finally:
+        # pymilvus reuses a connection alias for this server URI. The fixture
+        # owns vector cleanup/shutdown; closing this view would disconnect it.
+        reopened.mongo.close()
+
+
 def test_upload_sha_precedes_parse_and_embedding(store,tmp_path,monkeypatch):
     path=tmp_path/'report.md';path.write_text('费用为128元。')
     result=store.ingest_file(path); calls=store.provider.calls

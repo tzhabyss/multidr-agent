@@ -112,7 +112,7 @@ def test_default_runtime_config_exposes_all_llm_output_limits():
     assert config.mode_config("deep").max_rounds == 4
     assert config.graph_engineering.wave_size == 16
     assert config.graph_engineering.max_plan_tasks == 32
-    assert config.mode_config("max").max_total_fetches == 480
+    assert config.mode_config("max").max_total_fetches == 640
     assert config.stage_tier("planner", "quick") == "lite"
     assert config.stage_tier("synthesizer", "standard") == "craft"
     assert config.tool_permissions.executable_roles == ["worker"]
@@ -151,16 +151,16 @@ def test_default_runtime_config_exposes_all_llm_output_limits():
         "standard", "drb_evaluation"
     )
     assert evaluation_standard.max_workers == 8
-    assert evaluation_standard.max_total_searches == 200
-    assert evaluation_standard.max_total_fetches == 336
-    assert evaluation_standard.research_soft_wall_time_seconds == 3780
-    assert evaluation_standard.max_wall_time_seconds == 4080
+    assert evaluation_standard.max_total_searches == 100
+    assert evaluation_standard.max_total_fetches == 320
+    assert evaluation_standard.research_soft_wall_time_seconds == 2100
+    assert evaluation_standard.max_wall_time_seconds == 2400
     assert evaluation_standard.writer_wall_time_seconds == 1220
     assert evaluation_standard.reviewer_wall_time_seconds == 1020
     assert evaluation_standard.writer_rewrite_wall_time_seconds == 1220
     assert evaluation_standard.reviewer_recheck_wall_time_seconds == 500
     assert evaluation_standard.artifact_reserve_seconds == 60
-    assert evaluation_standard.max_total_wall_time_seconds == 8100
+    assert evaluation_standard.max_total_wall_time_seconds == 6420
     assert evaluation_standard.max_rounds == 4
     assert evaluation_standard.max_worker_iterations == 4
 
@@ -172,7 +172,7 @@ def test_mode_defaults_only_fill_options_not_explicitly_set():
     assert defaults == {
         "max_rounds": 4,
         "max_worker_iterations": 6,
-        "max_workers": 12,
+        "max_workers": 10,
     }
 
     explicit = config.resolve_research_options(
@@ -181,7 +181,7 @@ def test_mode_defaults_only_fill_options_not_explicitly_set():
     assert explicit == {
         "max_rounds": 2,
         "max_worker_iterations": 6,
-        "max_workers": 12,
+        "max_workers": 10,
     }
 
 
@@ -195,13 +195,13 @@ def test_standard_capacity_is_shared_and_explicit_options_win(tmp_path):
         general.max_total_searches,
         general.max_total_fetches,
         general.max_wall_time_seconds,
-    ) == (8, 200, 336, 4080)
+    ) == (8, 100, 320, 2400)
     assert (
         evaluation.max_workers,
         evaluation.max_total_searches,
         evaluation.max_total_fetches,
         evaluation.max_wall_time_seconds,
-    ) == (8, 200, 336, 4080)
+    ) == (8, 100, 320, 2400)
 
     resolved = config.resolve_research_options(
         ResearchOptions(max_workers=5),
@@ -236,7 +236,7 @@ def test_standard_capacity_is_shared_and_explicit_options_win(tmp_path):
         budget.max_total_searches,
         budget.max_total_fetches,
         budget.max_wall_time_seconds,
-    ) == (200, 336, 4080)
+    ) == (100, 320, 2400)
 
 
 def test_evaluation_writer_and_reviewer_have_independent_time_slots(monkeypatch):
@@ -245,22 +245,22 @@ def test_evaluation_writer_and_reviewer_have_independent_time_slots(monkeypatch)
     state = {
         "started_at": 1_000.0,
         "request": {"mode": "standard", "profile_id": "drb_evaluation"},
-        "run_budget": {"max_wall_time_seconds": 4080},
+        "run_budget": {"max_wall_time_seconds": 2400},
     }
 
-    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 3600)
+    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 2000)
     assert synthesizer._writer_timeout_seconds(state) == 1220
 
-    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 4200)
+    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 3500)
     assert synthesizer._reviewer_timeout_seconds(state) == 1020
 
-    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 5300)
+    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 4200)
     assert synthesizer._rewrite_timeout_seconds(state) == 1220
 
-    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 7000)
+    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 5800)
     assert synthesizer._reviewer_timeout_seconds(state, recheck=True) == 500
 
-    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 8100)
+    monkeypatch.setattr("deepresearch.agents.time.time", lambda: 1_000.0 + 6420)
     assert synthesizer._reviewer_timeout_seconds(state, recheck=True) == 0
 
 

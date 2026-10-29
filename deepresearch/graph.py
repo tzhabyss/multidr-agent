@@ -12,6 +12,7 @@ from langgraph.types import Send
 
 from .agents import Planner, ResearchWorker, Synthesizer
 from .artifacts import ArtifactWorkspace
+from .worker_checkpoints import WorkerCheckpointStore, window_identity
 from .budget import remaining_task_budget, summarize_usage, usage_event
 from .evidence import apply_citation_gate, render_markdown, validate_citations
 from .context_projection import project_context, projection_trace
@@ -156,6 +157,7 @@ class ResearchGraph:
         workspace: ArtifactWorkspace,
         evolution_store: EvolutionEpisodeStore | None = None,
         checkpointer: Any,
+        worker_checkpoint_store: WorkerCheckpointStore | None = None,
     ):
         self.planner = planner
         self.worker = worker
@@ -163,6 +165,7 @@ class ResearchGraph:
         self.profiles = profiles
         self.workspace = workspace
         self.evolution_store = evolution_store
+        self.worker_checkpoint_store = worker_checkpoint_store
         self.graph = self._build().compile(checkpointer=checkpointer)
 
     @staticmethod
@@ -769,6 +772,19 @@ class ResearchGraph:
         graph_config = self.planner.runtime_config.graph_engineering
         append_only = graph_config.p0_feature_enabled("append_only_evidence")
         local_state: dict[str, Any] = dict(state)
+        journal = getattr(self, "worker_checkpoint_store", None)
+        window_id_for_recovery = window_identity({
+            "state": dict(state),
+            "runtime_config": self.planner.runtime_config.model_dump(mode="json"),
+        }) if journal else ""
+        restored = (
+            await asyncio.to_thread(journal.load, state["run_id"], window_id_for_recovery)
+            if journal else {}
+        )
+        # Never reuse another task contract, even if the journal was edited.
+        task_by_id = {task.task_id: task for task in tasks}
+        if set(restored) - task_by_id.keys():
+            raise ValueError("Worker checkpoint contains an unknown task")
         reducer_by_key = {
             "contributions": state_ops.merge_contributions,
             "sources": state_ops.merge_sources,
@@ -830,6 +846,10 @@ class ResearchGraph:
         async def commit(
             task: ResearchTask, result: dict[str, Any]
         ) -> FrontierCommit:
+            # Durability precedes publication to downstream Workers.
+            if journal and task.task_id not in restored:
+                await asyncio.to_thread(journal.save, state["run_id"],
+                                        window_id_for_recovery, task.task_id, result)
             merge_worker_result(result)
             contribution = next(
                 (
@@ -903,6 +923,37 @@ class ResearchGraph:
                 state_patch=result,
             )
 
+        # Restore all terminal results before launching anything: dependent
+        # context and previously charged usage must already be present.
+        restored_waves: dict[str, int] = {}
+        for task_id, result in restored.items():
+            task = task_by_id[task_id]
+            committed = await commit(task, result)
+            wave = max((restored_waves.get(dep, 0) for dep in task.depends_on), default=0) + 1
+            restored_waves[task_id] = wave
+            local_state["task_runtime"] = state_ops.merge_task_runtime(
+                local_state.get("task_runtime", []),
+                [{**committed.runtime_update, "wave_no": wave}],
+            )
+
+        if journal:
+            pending = [task for task in tasks if task.task_id not in restored]
+            run_budget = RunBudget.model_validate(state["run_budget"])
+            remaining = remaining_task_budget(run_budget, local_state.get("usage_events", []))
+            task_ids = set(task_by_id)
+            used = summarize_usage([event for event in local_state.get("usage_events", [])
+                                    if event.get("task_id") in task_ids])
+            for pool, field, used_key in (
+                (self.worker.search_budget_pool, "max_searches", "searches"),
+                (self.worker.fetch_budget_pool, "max_fetches", "fetches"),
+            ):
+                capacity = min(getattr(remaining, field), max(0,
+                    sum(getattr(task.budget, field) for task in tasks) - int(used[used_key])))
+                count = max(1, len(pending))
+                allocations = {task.task_id: capacity // count + (index < capacity % count)
+                               for index, task in enumerate(pending)}
+                await pool.configure_round(state["run_id"], int(state.get("round_no", 1)), allocations)
+
         soft_deadline = float(state.get("started_at", time.time())) + min(
             float(RunBudget.model_validate(state["run_budget"]).max_wall_time_seconds),
             _research_soft_wall_time_seconds(state, self.profiles),
@@ -910,7 +961,7 @@ class ResearchGraph:
 
         frontier_result = await run_continuous_frontier(
             tasks=tasks,
-            runtime=state.get("task_runtime", []),
+            runtime=local_state.get("task_runtime", []),
             max_concurrency=scope.options.max_workers,
             execute=execute,
             commit=commit,
@@ -921,6 +972,12 @@ class ResearchGraph:
             enhanced=graph_config.p0_feature_enabled("frontier"),
             max_pending_tasks=graph_config.max_plan_tasks,
         )
+        # Keep accounting/history complete even when the entire window was
+        # restored and no new Worker needed to run.
+        frontier_result.results[:0] = [(task_by_id[key], value) for key, value in restored.items()]
+        frontier_result.completion_order[:0] = list(restored)
+        for task_id, wave in restored_waves.items():
+            frontier_result.wave_task_ids.setdefault(wave, []).insert(0, task_id)
         local_state["task_runtime"] = frontier_result.runtime
         cell, scope_status = calculate_dual_coverage(local_state)
         window_id = f"r{int(state.get('round_no', 1))}-frontier"
@@ -950,6 +1007,7 @@ class ResearchGraph:
             "max_running": frontier_result.max_running,
             "task_count": len(frontier_result.tasks),
             "completed_count": len(frontier_result.results),
+            "restored_task_ids": list(restored),
             "wave_task_ids": {
                 str(wave_no): task_ids
                 for wave_no, task_ids in sorted(frontier_result.wave_task_ids.items())

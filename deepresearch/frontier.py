@@ -332,69 +332,78 @@ async def run_continuous_frontier(
     wave_task_ids: dict[int, list[str]] = {}
     max_running = 0
 
-    while running or registry.pending():
-        ready = [task for task in registry.ready() if task not in running.values()]
-        selected = select_wave(
-            ready,
-            wave_size=max(1, max_concurrency - len(running)),
-            source_origin_first=False,
-            priority_order=priority_order,
-        )
-        while selected and len(running) < max_concurrency and (
-            may_launch is None or may_launch()
-        ):
-            task = selected.pop(0)
-            dependency_waves = [
-                int(registry.runtime.get(dependency_id, {}).get("wave_no", 0))
-                for dependency_id in task.depends_on
-            ]
-            launch_wave = max(dependency_waves, default=0) + 1
-            registry.update_runtime(
-                {
-                    "task_id": task.task_id,
-                    "status": "running",
-                    "wave_no": launch_wave,
-                }
+    try:
+        while running or registry.pending():
+            ready = [task for task in registry.ready() if task not in running.values()]
+            selected = select_wave(
+                ready,
+                wave_size=max(1, max_concurrency - len(running)),
+                source_origin_first=False,
+                priority_order=priority_order,
             )
-            future = asyncio.create_task(execute(task), name=f"frontier:{task.task_id}")
-            running[future] = task
-            launch_order.append(task.task_id)
-            launch_wave_by_task[task.task_id] = launch_wave
-            wave_task_ids.setdefault(launch_wave, []).append(task.task_id)
-            max_running = max(max_running, len(running))
+            while selected and len(running) < max_concurrency and (
+                may_launch is None or may_launch()
+            ):
+                task = selected.pop(0)
+                dependency_waves = [
+                    int(registry.runtime.get(dependency_id, {}).get("wave_no", 0))
+                    for dependency_id in task.depends_on
+                ]
+                launch_wave = max(dependency_waves, default=0) + 1
+                registry.update_runtime(
+                    {
+                        "task_id": task.task_id,
+                        "status": "running",
+                        "wave_no": launch_wave,
+                    }
+                )
+                future = asyncio.create_task(execute(task), name=f"frontier:{task.task_id}")
+                running[future] = task
+                launch_order.append(task.task_id)
+                launch_wave_by_task[task.task_id] = launch_wave
+                wave_task_ids.setdefault(launch_wave, []).append(task.task_id)
+                max_running = max(max_running, len(running))
 
-        if not running:
-            # Remaining tasks are blocked or launch policy entered drain mode.
-            break
+            if not running:
+                # Remaining tasks are blocked or launch policy entered drain mode.
+                break
 
-        done, _ = await asyncio.wait(
-            running.keys(), return_when=asyncio.FIRST_COMPLETED
-        )
-        for future in done:
-            task = running.pop(future)
-            try:
-                result = future.result()
-            except asyncio.CancelledError:
-                result = {"error": "cancelled", "contributions": []}
-            except Exception as exc:  # The graph records the concrete error.
-                result = {
-                    "error": f"{type(exc).__name__}: {exc}",
-                    "contributions": [],
-                }
-            committed = commit(task, result)
-            if isinstance(committed, Awaitable):
-                committed = await committed
-            registry.update_runtime(
-                {
-                    **committed.runtime_update,
-                    "wave_no": launch_wave_by_task[task.task_id],
-                }
+            done, _ = await asyncio.wait(
+                running.keys(), return_when=asyncio.FIRST_COMPLETED
             )
-            registry.add_tasks(committed.new_tasks)
-            if committed.state_patch:
-                state_patches.append(committed.state_patch)
-            results.append((task, result))
-            completion_order.append(task.task_id)
+            for future in done:
+                task = running.pop(future)
+                try:
+                    result = future.result()
+                except asyncio.CancelledError:
+                    result = {"error": "cancelled", "contributions": []}
+                except Exception as exc:  # The graph records the concrete error.
+                    result = {
+                        "error": f"{type(exc).__name__}: {exc}",
+                        "contributions": [],
+                    }
+                committed = commit(task, result)
+                if isinstance(committed, Awaitable):
+                    committed = await committed
+                registry.update_runtime(
+                    {
+                        **committed.runtime_update,
+                        "wave_no": launch_wave_by_task[task.task_id],
+                    }
+                )
+                registry.add_tasks(committed.new_tasks)
+                if committed.state_patch:
+                    state_patches.append(committed.state_patch)
+                results.append((task, result))
+                completion_order.append(task.task_id)
+
+    finally:
+        # Parent cancellation or a failed durable commit must not leave orphan
+        # Workers executing tools after their scheduler has stopped.
+        for future in running:
+            future.cancel()
+        if running:
+            await asyncio.gather(*running, return_exceptions=True)
 
     return FrontierRunResult(
         results=results,

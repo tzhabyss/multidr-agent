@@ -7,93 +7,31 @@ are journalled before external writes; retries use new, disjoint snapshot IDs.
 from __future__ import annotations
 
 import hashlib
-import io
 import json
-import math
-import re
 import threading
 import uuid
-from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from numbers import Real
 from pathlib import Path
 
-from .store import KnowledgeStore, digest, features
-from .candidate_selection import POLICIES, quota_targets, select_candidates
+from .store import KnowledgeStore, digest
+from .retrieval import DocumentRetrievalMixin, structured_chunks, validate_vectors
+from .candidate_selection import POLICIES
 from ..memory_system.embeddings import ResilientEmbeddingProvider
 
 
 def utcnow():
     return datetime.now(timezone.utc)
-
-
-def structured_chunks(text, size=600):
-    """Preserve contiguous source spans; repeat split-table headers only in index text."""
-    result, headings, pending = [], [], None
-    blocks = list(re.finditer(r"[^\n]+(?:\n(?!\s*\n)[^\n]+)*", text))
-    for block in blocks:
-        start, end = block.span()
-        value = block.group()
-        first = value.splitlines()[0]
-        heading = re.match(r"^(#{1,6})\s+(.+)$", first)
-        clause = re.match(r"^(第[零〇一二三四五六七八九十百千万\d]+[编章节条])(?:\s|[、.：:]|$)", first)
-        if heading:
-            headings = headings[:len(heading[1])-1] + [heading[2]]
-        elif clause:
-            if clause[1].endswith(('章', '节', '编')):
-                headings = [first]
-            else:
-                headings = headings[:1] + [first]
-        if heading and '\n' not in value and len(value) <= size:
-            pending = start if pending is None else pending
-            continue
-        if pending is not None:
-            start, pending = pending, None
-        table_header = ''
-        table_lines = value.splitlines()
-        if len(table_lines) > 1 and '|' in table_lines[0] and re.match(r'^\s*\|?\s*:?-+', table_lines[1]):
-            table_header = '\n'.join(table_lines[:2])
-        cursor = start
-        while cursor < end:
-            stop = min(cursor+size, end)
-            if stop < end:
-                marks = '\n' if table_header else '。；.!?\n'
-                boundary = max(text.rfind(c, cursor+size//2, stop) for c in marks)
-                if boundary >= 0:
-                    stop = boundary+1
-            result.append({'start': cursor, 'end': stop, 'path': list(headings),
-                           'index_prefix': table_header if table_header and cursor > block.start() else ''})
-            cursor = stop
-    if pending is not None:
-        for cursor in range(pending, len(text), size):
-            result.append({'start': cursor, 'end': min(cursor+size, len(text)),
-                           'path': list(headings), 'index_prefix': ''})
-    return result
-
-
-def validate_vectors(vectors, count, dimensions):
-    if len(vectors) != count:
-        raise ValueError('incomplete embedding batch')
-    for vector in vectors:
-        if len(vector) != dimensions or dimensions <= 0:
-            raise ValueError('embedding dimension mismatch')
-        if any(isinstance(v, bool) or not isinstance(v, Real) or not math.isfinite(v) for v in vector):
-            raise ValueError('embedding must contain finite numeric values')
-        if not any(v != 0 for v in vector):
-            raise ValueError('zero embedding is not ready')
-
-
 class IngestionBusy(RuntimeError):
     pass
 
 
-class MongoMilvusStore:
+class MongoMilvusStore(DocumentRetrievalMixin):
     """Trusted local collections; user/department ACLs are not inferred from query text."""
     def __init__(self, mongo_uri='mongodb://127.0.0.1:27017', *, database='deepresearch_knowledge',
                  milvus_uri='http://127.0.0.1:19530', milvus_token='', provider=None,
                  reranker=None, contextual=False, lease_seconds=120, mongo_client=None,
-                 vector_client=None, parser='native', allow_degraded=False, candidate_policy='rrf',
+                 vector_client=None, parser='auto', parse_options=None, allow_degraded=False, candidate_policy='rrf',
                  document_context=None, reranker_neighbor_chars=0):
         if candidate_policy not in POLICIES:
             raise ValueError('unknown candidate policy')
@@ -106,6 +44,7 @@ class MongoMilvusStore:
         self.vectors = vector_client if vector_client is not None else MilvusClient(uri=milvus_uri, token=milvus_token, timeout=10)
         self.provider = provider or ResilientEmbeddingProvider(fallback_enabled=False)
         self.reranker, self.contextual, self.parser = reranker, contextual, parser
+        self.parse_options = parse_options
         self.candidate_policy = candidate_policy
         self.document_context = document_context
         self.reranker_neighbor_chars = reranker_neighbor_chars
@@ -186,12 +125,25 @@ class MongoMilvusStore:
                     'status': self.snapshot(version['_id'], collection=collection)['status']}
         return None
 
-    def ingest(self, content, *, uri, title, collection='library', metadata=None, document_id=None):
+    def ingest(self, content, *, uri, title, collection='library', metadata=None, document_id=None, refresh_capture=False):
         if not content.strip() or not collection.strip():
             raise ValueError('nonempty content and collection required')
         document_id = document_id or uri
         with self._lease(collection, document_id) as lease:
-            found = self._duplicate(collection, document_id, digest(content), title, metadata)
+            if refresh_capture:
+                from .research_sources import capture_is_older, merge_capture_metadata
+                head = self.db.heads.find_one({'_id': lease['head_id']})
+                current = self.db.versions.find_one({'_id': head.get('active')}) if head and head.get('active') else None
+                if current and capture_is_older(metadata or {}, current['metadata']):
+                    return {'snapshot_id': current['_id'], 'superseded_capture': True}
+                if current and current['hash'] == digest(content):
+                    self.db.versions.update_one({'_id': current['_id']}, {'$set': {
+                        'metadata': merge_capture_metadata(current['metadata'], metadata or {})}})
+                    return {'snapshot_id': current['_id'], 'duplicate': True, 'status': 'active'}
+                # Historical content returning is a new immutable observation.
+                found = None
+            else:
+                found = self._duplicate(collection, document_id, digest(content), title, metadata)
             if found:
                 return found
             job = self._new_job(lease, collection, document_id, uri, title,
@@ -318,23 +270,7 @@ class MongoMilvusStore:
             self._compensate(job)
             raise
 
-    def _index_projection(self, content, parts):
-        notes = self.document_context.projection(content, parts) if self.document_context else {}
-        return {'index_context': self.contextual, 'retrieval_contexts': notes,
-                'context_manifest_sha256': self.document_context.fingerprint if notes else None}
 
-    def _index_text(self, version, row):
-        text = version['content'][row['start']:row['end']]
-        prefix = row.get('index_prefix', '')
-        # Use the published projection, not a reader's current feature switches.
-        if version.get('index_context', self.contextual):
-            prefix = '\n'.join([version['title'][:200], ' > '.join(row['heading'])[:300], prefix])
-        note = version.get('retrieval_contexts', {}).get(f"{row['start']}:{row['end']}")
-        if note:
-            if digest(text) != note['chunk_sha256']:
-                raise ValueError('retrieval description source hash mismatch')
-            prefix = '\n'.join(filter(None, [prefix, note['text']]))
-        return prefix+'\n'+text if prefix else text
 
     def _finish_publication(self, job):
         sid = job['snapshot_id']
@@ -425,53 +361,24 @@ class MongoMilvusStore:
         version = self.db.versions.find_one({'_id': job['snapshot_id']})
         if version:
             with self._lease(job['collection'], job['document_id']) as lease:
-                found = self._duplicate(job['collection'], job['document_id'], job['source_hash'],
-                                        job['title'], version['metadata'])
+                found = None if job.get('reparse') else self._duplicate(
+                    job['collection'], job['document_id'], job['source_hash'], job['title'], version['metadata'])
                 if found:
                     return found
                 attempt = self._new_job(lease, job['collection'], job['document_id'], job['uri'], job['title'],
                     source_hash=job['source_hash'], source_kind=job['source_kind'], metadata=version['metadata'],
-                    retry_of=job_id)
+                    retry_of=job_id, reparse=job.get('reparse', False))
                 return self._execute(attempt, version['content'], lease)
         if job.get('source_path'):
             path = Path(job['source_path'])
             if hashlib.sha256(path.read_bytes()).hexdigest() != job['source_hash']:
                 raise ValueError('source file changed; retry requires the original upload')
-            return self.ingest_file(path, collection=job['collection'], document_id=job['document_id'])
+            return self.ingest_file(path, collection=job['collection'], document_id=job['document_id'],
+                                    reparse=job.get('reparse', False))
         raise ValueError('failed job has no recoverable source')
 
-    def _parse(self, data, suffix):
-        if self.parser == 'mineru' and suffix == '.pdf':
-            from .parsing import mineru_parse
-            return mineru_parse(data)
-        if suffix == '.pdf':
-            from pypdf import PdfReader
-            pages = [p.extract_text() or '' for p in PdfReader(io.BytesIO(data)).pages]
-            offsets, position = [], 0
-            for page in pages:
-                offsets.append(position); position += len(page)+2
-            return '\n\n'.join(pages), {'page_starts': offsets, 'parser': 'pypdf-text'}
-        if suffix in ['.md', '.txt']:
-            return data.decode('utf-8'), {'parser': 'utf8'}
-        if suffix == '.docx':
-            from docx import Document
-            from docx.table import Table
-            from docx.text.paragraph import Paragraph
-            blocks = []
-            for block in Document(io.BytesIO(data)).iter_inner_content():
-                if isinstance(block, Paragraph):
-                    style = block.style.name or ''
-                    match = re.match('Heading ([1-6])', style)
-                    blocks.append(('#'*int(match[1])+' ' if match else '')+block.text)
-                elif isinstance(block, Table):
-                    rows = [[cell.text.replace('\n',' ').replace('|','\\|') for cell in row.cells] for row in block.rows]
-                    if rows:
-                        blocks.append('\n'.join(['| '+' | '.join(rows[0])+' |', '| '+' | '.join(['---']*len(rows[0]))+' |',
-                                       *['| '+' | '.join(row)+' |' for row in rows[1:]]]))
-            return '\n\n'.join(blocks), {'parser': 'python-docx'}
-        raise ValueError('supported formats: .md, .txt, text .pdf, .docx; scan PDF requires MinerU')
 
-    def ingest_file(self, path, *, collection='library', document_id=None):
+    def ingest_file(self, path, *, collection='library', document_id=None, reparse=False):
         path = Path(path).resolve()
         data = path.read_bytes()
         source_hash = hashlib.sha256(data).hexdigest()
@@ -479,12 +386,12 @@ class MongoMilvusStore:
             raise ValueError('upload exceeds local 32 MiB limit')
         document_id = document_id or path.as_uri()
         with self._lease(collection, 'upload:'+source_hash), self._lease(collection, document_id) as lease:
-            found = self._duplicate(collection, document_id, source_hash, path.name, None)
+            found = None if reparse else self._duplicate(collection, document_id, source_hash, path.name, None)
             if found:
                 return found
             # Identical bytes at another path share the parsed snapshot and embeddings.
             upload = self.db.uploads.find_one({'collection': collection, 'file_hash': source_hash})
-            if upload:
+            if upload and not reparse:
                 existing = self.db.versions.find_one({'_id': upload['snapshot_id'], 'published_at': {'$exists': True}})
                 if existing:
                     # Cross-source copies only alias the same logical document when no ID was forced.
@@ -494,7 +401,7 @@ class MongoMilvusStore:
                         return {'snapshot_id': existing['_id'], 'duplicate': True,
                                 'status': self.snapshot(existing['_id'], collection=collection)['status']}
             job = self._new_job(lease, collection, document_id, path.as_uri(), path.name,
-                source_hash=source_hash, source_kind='upload_bytes', source_path=str(path))
+                source_hash=source_hash, source_kind='upload_bytes', source_path=str(path), reparse=bool(reparse))
             try:
                 content, metadata = self._parse(data, path.suffix.lower())
                 if not content.strip():
@@ -535,132 +442,10 @@ class MongoMilvusStore:
         return [self.snapshot(head['active'], collection=collection)
                 for head in self.db.heads.find({'collection': collection, 'active': {'$ne': None}})]
 
-    def search(self, query, *, collection='library', snapshot_id=None, as_of=None, limit=5, mode='hybrid', rerank=True,
-               candidate_policy=None, trace=None):
-        if mode not in ['hybrid', 'bm25', 'vector']:
-            raise ValueError('unknown retrieval mode')
-        requested_policy = self.candidate_policy if candidate_policy is None else candidate_policy
-        if requested_policy not in POLICIES:
-            raise ValueError('unknown candidate policy')
-        policy = requested_policy if mode == 'hybrid' else 'rrf'
-        if not query.strip() or limit <= 0:
-            return []
-        versions = self._eligible(collection, snapshot_id, as_of)
-        if not versions:
-            return []
-        by_sid = {v['_id']: v for v in versions}
-        rows = list(self.db.chunks.find({'snapshot': {'$in': list(by_sid)}}).sort('_id', 1))
-        # Stable ties across rebuilds/models; random staging IDs cannot decide relevance.
-        def tie(cid):
-            row = by_id[cid]
-            version = by_sid[row['snapshot']]
-            return version['document_id'], row['start'], row['end'], version['hash']
-        by_id = {row['_id']: row for row in rows}
-        lexical, semantic = [], []
-        if mode != 'vector':
-            counts = [Counter(features(self._index_text(by_sid[row['snapshot']], row))) for row in rows]
-            terms = set(features(query)); df = Counter(t for c in counts for t in c if t in terms)
-            lengths = [sum(c.values()) for c in counts]; avg = sum(lengths)/max(1,len(lengths)) or 1
-            for row, freq, length in zip(rows, counts, lengths, strict=True):
-                score = sum(math.log(1+(len(rows)-df[t]+.5)/(df[t]+.5))*freq[t]*2.2 /
-                    (freq[t]+1.2*(.25+.75*length/avg)) for t in terms if freq[t])
-                if score > 0:
-                    lexical.append((row['_id'], score))
-            lexical.sort(key=lambda x: (-x[1], tie(x[0]))); lexical = lexical[:20]
-        vector_status = 'disabled' if mode == 'bm25' else 'available'
-        if mode != 'bm25':
-            try:
-                with self.lock:
-                    vector = self.provider.encode_query(query)
-                    validate_vectors([vector], 1, self.provider.dimensions)
-                    if self.provider.degraded:
-                        raise ValueError('semantic embedding unavailable')
-                    model = self.provider.model_id
-                names = {v['vector_collection'] for v in versions if v.get('model') == model}
-                for name in names:
-                    sids = [v['_id'] for v in versions if v.get('vector_collection') == name]
-                    status_filter = 'status in ["active", "archived"]' if snapshot_id or as_of else 'status == "active"'
-                    filt = 'scope == '+json.dumps(digest(collection))+' and '+status_filter+' and snapshot in '+json.dumps(sids)
-                    hits = self.vectors.search(collection_name=name, data=[vector], filter=filt, limit=40,
-                        output_fields=['snapshot'], consistency_level='Strong')[0]
-                    for hit in hits:
-                        if hit['id'] in by_id:
-                            semantic.append((hit['id'], float(hit['distance'])))
-                semantic.sort(key=lambda x: (-x[1], tie(x[0]))); semantic = semantic[:40]
-            except Exception:
-                vector_status = 'fallback_bm25'
-                if mode == 'vector':
-                    raise
-        scores, route_ids = {}, []
-        for route in ([lexical] if mode == 'bm25' else [semantic] if mode == 'vector' else [lexical, semantic]):
-            seen, ids = set(), []
-            for rank, (cid, _) in enumerate(route,1):
-                row = by_id[cid]; version = by_sid[row['snapshot']]
-                key = (row['snapshot'], digest(version['content'][row['start']:row['end']].strip()))
-                if key in seen:
-                    continue
-                seen.add(key); scores[cid] = scores.get(cid,0)+1/(60+rank)
-                ids.append(cid)
-            route_ids.append(ids)
-        budget = max(20,limit*2)
-        fused = sorted(scores, key=lambda cid: (-scores[cid], tie(cid)))
-        selected = select_candidates(route_ids[0] if mode != 'vector' else [],
-            route_ids[-1] if mode != 'bm25' else [], fused, budget=budget, policy=policy)
-        if trace is not None:
-            lexical_target, semantic_target = quota_targets(budget, policy)
-            trace.update(policy=policy, budget=budget, lexical_quota=lexical_target, semantic_quota=semantic_target,
-                lexical=route_ids[0] if mode != 'vector' else [],
-                semantic=route_ids[-1] if mode != 'bm25' else [], fused=fused, selected=selected,
-                vector_status=vector_status)
-        hits = []
-        for cid in selected:
-            row = by_id[cid]
-            # Second gate: authoritative state and source bytes, never Milvus payload text.
-            version = self.snapshot(row['snapshot'], collection=collection)
-            if not snapshot_id and not as_of and version['status'] != 'active':
-                continue
-            text = version['content'][row['start']:row['end']]
-            pages = json.loads(version['metadata']).get('page_starts', [])
-            hits.append({'chunk_id': cid, 'snapshot_id': version['_id'], 'uri': version['uri'],
-                'title': version['title'], 'content': text, 'start': row['start'], 'end': row['end'],
-                'heading': row['heading'], 'table_header': row.get('index_prefix') or None,
-                'page': sum(o<=row['start'] for o in pages) if pages else None, 'score': scores[cid],
-                'degraded': bool(version.get('degraded')) or vector_status == 'fallback_bm25',
-                'model_mismatch': version.get('model') != self.provider.model_id, 'index_context': bool(version.get('index_context')),
-                'rerank_status': 'disabled', 'vector_status': vector_status})
-        if trace is not None:
-            trace['validated'] = [h['chunk_id'] for h in hits]
-        if rerank and self.reranker and hits:
-            try:
-                ranked = self.reranker(query, self.prepare_rerank_hits(hits, collection=collection))
-                if sorted(h['chunk_id'] for h in ranked) != sorted(h['chunk_id'] for h in hits):
-                    raise ValueError('reranker must return a permutation')
-                trusted = {h['chunk_id']: h for h in hits}; hits = [trusted[h['chunk_id']] for h in ranked]
-                for hit in hits:
-                    hit['rerank_status'] = 'applied'
-            except Exception:
-                for hit in hits:
-                    hit['rerank_status'] = 'fallback'
-        return hits[:limit]
 
-    def prepare_rerank_hits(self, hits, *, collection='library'):
-        """Bounded original neighbors for scoring only; never enlarge evidence spans."""
-        inputs, snapshots = [], {}
-        for hit in hits:
-            value = dict(hit)
-            value.pop('_rerank_neighbors', None)
-            if self.reranker_neighbor_chars:
-                sid = hit['snapshot_id']
-                if sid not in snapshots:
-                    snapshots[sid] = self.snapshot(sid, collection=collection)
-                content = snapshots[sid]['content']
-                a, b = hit['start'], hit['end']
-                if content[a:b] != hit['content']:
-                    raise ValueError('reranker target differs from immutable source')
-                radius = self.reranker_neighbor_chars
-                value['_rerank_neighbors'] = {'before': content[max(0,a-radius):a], 'after': content[b:b+radius]}
-            inputs.append(value)
-        return inputs
+
+    def _chunk_rows(self, versions):
+        return list(self.db.chunks.find({'snapshot': {'$in': [v['_id'] for v in versions]}}).sort('_id', 1))
 
     windows = KnowledgeStore.windows
 

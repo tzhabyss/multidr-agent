@@ -53,12 +53,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     knowledge = subparsers.add_parser("knowledge", help="import or search the local research library")
-    knowledge.add_argument("action", choices=("ingest", "search", "reindex", "jobs", "retry", "reconcile"))
+    knowledge.add_argument("action", choices=("ingest", "search", "reindex", "jobs", "retry", "reconcile", "migrate"))
     knowledge.add_argument("value", nargs="?", help="file path or search query")
     knowledge.add_argument("--config", type=Path)
     knowledge.add_argument("--db", type=Path)
+    knowledge.add_argument("--source-config", type=Path, help="legacy mongo_milvus config for explicit migration")
     knowledge.add_argument("--collection")
     knowledge.add_argument("--document-id", help="stable logical identity across renamed versions")
+    knowledge.add_argument("--reparse", action="store_true", help="reparse unchanged bytes and publish a new version (Milvus backends)")
     knowledge.add_argument("--as-of", help="snapshot capture cutoff, ISO timestamp with timezone")
     knowledge.add_argument("--lexical-only", action="store_true")
     monitor = subparsers.add_parser("monitor", help="summarize persisted run operations without external calls")
@@ -466,28 +468,48 @@ def main(argv: Sequence[str] | None = None) -> int:
             config = load_runtime_config(args.config).knowledge
             store = create_store(config, path=args.db,
                                  provider=HashEmbeddingProvider() if args.lexical_only else None)
-            if args.action == "search" and config.reranker_model and not args.lexical_only:
-                from .knowledge.reranker import CrossEncoderReranker
-                store.reranker = CrossEncoderReranker(config.reranker_model, config.reranker_timeout_seconds)
-            collection = args.collection or config.collection
-            if args.action in {"ingest", "search", "retry"} and not args.value:
-                raise ValueError("knowledge ingest/search requires a file path or query")
-            if args.action in {"jobs", "retry", "reconcile"} and config.backend != "mongo_milvus":
-                raise ValueError("jobs/retry/reconcile require the mongo_milvus backend")
-            if args.document_id and config.backend != "mongo_milvus":
-                raise ValueError("--document-id requires the mongo_milvus backend")
-            if args.action == "ingest":
-                kwargs = {"document_id": args.document_id} if args.document_id else {}
-                result = store.ingest_file(args.value, collection=collection, **kwargs)
-            elif args.action == "search":
-                result = store.search(args.value, collection=collection, as_of=args.as_of,
-                                      mode="bm25" if args.lexical_only else "hybrid")
-            elif args.action == "retry":
-                result = store.retry(args.value)
-            else:
-                result = getattr(store, args.action)(collection=collection)
-            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
-            return 0
+            try:
+                if args.action == "search" and config.reranker_model and not args.lexical_only:
+                    from .knowledge.reranker import CrossEncoderReranker
+                    store.reranker = CrossEncoderReranker.from_config(config)
+                collection = args.collection or config.collection
+                if args.action in {"ingest", "search", "retry"} and not args.value:
+                    raise ValueError("knowledge ingest/search requires a file path or query")
+                if args.action in {"jobs", "retry", "reconcile"} and config.backend not in {"milvus", "mongo_milvus"}:
+                    raise ValueError("jobs/retry/reconcile require milvus or legacy mongo_milvus")
+                if args.document_id and config.backend not in {"milvus", "mongo_milvus"}:
+                    raise ValueError("--document-id requires milvus or legacy mongo_milvus")
+                if args.reparse and (args.action != "ingest" or config.backend not in {"milvus", "mongo_milvus"}):
+                    raise ValueError("--reparse requires knowledge ingest with a Milvus backend")
+                if args.action == "migrate":
+                    if config.backend != "milvus" or args.source_config is None:
+                        raise ValueError("migrate requires target backend milvus and --source-config")
+                    source_config = load_runtime_config(args.source_config).knowledge
+                    if source_config.backend != "mongo_milvus":
+                        raise ValueError("--source-config must select the legacy mongo_milvus backend")
+                    from .knowledge.migration import migrate_collection
+                    source = create_store(source_config, provider=store.provider)
+                    try:
+                        result = migrate_collection(source, store, collection=collection)
+                    finally:
+                        source.close()
+                elif args.action == "ingest":
+                    kwargs = {"document_id": args.document_id} if args.document_id else {}
+                    if args.reparse:
+                        kwargs["reparse"] = True
+                    result = store.ingest_file(args.value, collection=collection, **kwargs)
+                elif args.action == "search":
+                    result = store.search(args.value, collection=collection, as_of=args.as_of,
+                                          mode="bm25" if args.lexical_only else "hybrid")
+                elif args.action == "retry":
+                    result = store.retry(args.value)
+                else:
+                    result = getattr(store, args.action)(collection=collection)
+                print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+                return 0
+            finally:
+                if callable(getattr(store, "close", None)):
+                    store.close()
         if args.command == "web":
             import uvicorn
 

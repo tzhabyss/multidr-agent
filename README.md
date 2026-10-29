@@ -192,6 +192,14 @@ python -m deepresearch run "分析这个来源并核验关键结论" `
 python -m deepresearch resume bci-research --json
 ```
 
+默认 SQLite Checkpointer 配合连续调度时，每个 Worker 的终态结果还会独立保存到
+`.runtime/checkpoints.workers.sqlite`（自定义 checkpoint 路径时使用同名 `.workers.sqlite` 文件）。
+恢复会先还原已保存的来源、证据和用量，再调度剩余任务；执行到一半且未保存结果的 Worker 会重跑。
+记录绑定输入状态、任务计划、运行配置和 Skill 快照，配置变化后不会误用旧结果。
+保留和迁移运行时需同时保留主检查点与 Worker 数据库；不要并发恢复同一个 run。
+这不是工具调用级续跑或外部副作用的 exactly-once 保证，恢复不会重置原有时间预算。
+注入自定义 Checkpointer 的嵌入式用法默认不启用此日志，可通过 `ResearchGraph.worker_checkpoint_store` 显式配置。
+
 CLI 退出码：`0` verified，`3` partial，`1` failed，`2` 配置错误，`130` 用户中断。
 
 ### 输入格式
@@ -239,18 +247,27 @@ python -m deepresearch run "Python 3.13.0 的正式发布日期是什么？" --j
 
 ## 预算
 
-`standard` 默认全局预算在 `config/runtime.yaml` 的
-两个 Profile 的 `mode_overrides.standard` 下配置：
+四档研究预算在 `config/runtime.yaml` 配置；Standard 的两个 Profile 覆盖值保持一致。
+这些是基于历史用量保留余量的上限，不是每次都会用满，也尚未证明为质量最优参数。
 
-- Token 仅记录实际用量，不作为停止条件；
-- 8 个并行 Worker；
-- 200 次逻辑 Search，每次同时 fanout 到两个 Provider；
-- 336 次 Fetch；
-- 2040 秒研究软截止，2340 秒研究硬截止；
-- Standard 研究软/硬截止为 3780/4080 秒；Planner 在 craft 运行 900 秒后并发启动 default，craft 最多继续到 1200 秒；Writer 和 Reviewer 各有 1020 秒阶段槽位，在 craft 运行 500 秒后并发启动 default，craft 最多继续到 900 秒；Artifact 预留 60 秒，配置的端到端上限为 6180 秒；
-- `drb_evaluation` 另执行最多 600 秒 Reviewer，`general_research` 不调用 Reviewer。
+| 参数 | Quick | Standard | Deep | Max |
+|---|---:|---:|---:|---:|
+| 最大研究轮数 | 1 | 4 | 4 | 6 |
+| Worker 迭代配置 | 2 | 4 | 6 | 8 |
+| 最大并行 Worker | 2 | 8 | 10 | 12 |
+| 逻辑搜索额度 | 16 | 100 | 200 | 320 |
+| 抓取额度 | 32 | 320 | 480 | 640 |
+| 研究硬上限（秒） | 600 | 2400 | 3600 | 4800 |
 
-搜索以至多十二条查询为一波，并与抓取交替执行，再由 Synthesizer 决定是否存在值得返回 Planner 的具体、核心、可检索缺口。只有带定向缺口的 `need_more` 才会 replan；可选背景或笼统的“再找更好来源”不会触发空转。Fetch 使用 Worker 共享租约池；提前结束、超时或失败的 Worker 会归还未用租约，其他 Worker 可继续抓取，但全局用量不会超过 336。Worker 达到任务合同的证据下限后会提前停止。
+Standard 在 2100 秒后停止启动新研究任务，已有任务可在 2400 秒硬截止内收尾。
+Writer、Reviewer、Writer 重写、Reviewer 复查分别保留 1220、1020、1220、500 秒，
+产物保存预留 60 秒；端到端配置上限为 6420 秒，研究上限不等于总交付耗时。
+普通研究按需审稿，DRB 评测按配置始终审稿。模型阶段分配与输出 Token 上限不随本次预算调整改变。
+
+搜索和抓取与证据检查交替执行，Synthesizer 根据具体缺口决定是否返回 Planner。
+搜索按逻辑查询计数，一条查询可 fanout 到多个 Provider。共享租约池管理调用额度，
+提前结束的 Worker 归还未用额度；任务达到完成条件或没有有效进展时可以提前停止。
+
 
 ## 来源与发布门禁
 
@@ -335,7 +352,7 @@ python -m compileall -q deepresearch evaluation
 python -m pytest -q
 ```
 
-当前完整回归结果：`339 passed, 1 skipped, 1 warning`。Warning 来自 MCP 依赖对旧客户端函数的弃用提示，与核心功能无关。
+2026-10-29 发布前回归：`548 passed, 51 skipped, 2 warnings`。使用隔离配置关闭日常资料库初始化，专用 Milvus Lite、真实本地 OCR 和恢复测试仍执行；51项跳过为未配置外部旧版双库/迁移环境。两项 Warning 来自 Starlette/httpx 与 MCP 的依赖弃用提示。另从暂存内容导出的干净源码副本运行解析与缓存回退测试，`21 passed`；Wheel 构建通过并包含 Swift OCR 源码。
 
 覆盖统一模式、Planner 问题分类、并行 Worker、Worker 策略与反思、多轮 `need_more -> Planner`、显式维度覆盖、证据下限、来源去重、Tier 4 隔离、超时、预算、Citation Gate、SSRF、Artifact 哈希、SQLite Resume 和评测 Reference 隔离。
 
@@ -463,3 +480,8 @@ or `/progress quiet` for major phases only.
 Project timestamps default to `Asia/Shanghai` and include `+08:00`; legacy UTC
 session timestamps are converted when displayed. See
 [progress stream and timezone](docs/progress-stream.md) for the event contract.
+
+资料库文件解析现支持逐页PDF文字提取与本地OCR补充，以及PNG/JPEG等独立图片识字。
+macOS默认使用Apple Vision，其他平台需安装Tesseract及语言数据；需要OCR却未成功的页面默认阻止新版本发布。
+已入库文件用 `knowledge ingest FILE --reparse` 显式重解析，普通 `reindex` 不会重新识字。
+配置、安装要求和识别边界见 [资料库解析说明](docs/knowledge-rag.md#pdf-与图片解析2026-10-28)。

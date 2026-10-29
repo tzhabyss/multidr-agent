@@ -108,10 +108,24 @@ def create_app(
         memory = None
         if service.memory is not None:
             memory = (await service.memory.facts.stats()).model_dump(mode="json")
+        worker = getattr(getattr(service, "_graph", None), "worker", None)
+        knowledge = getattr(worker, "knowledge", None)
+        ranker = getattr(knowledge, "reranker", None)
         return {
             "status": "ready",
             "memory": memory,
             "monitor": service.monitor_summary(),
+            "knowledge": {
+                "enabled": runtime_config.knowledge.enabled,
+                "initialized": knowledge is not None,
+                "initialization_error": getattr(worker, "knowledge_initialization_error", None),
+                "backend": runtime_config.knowledge.backend,
+                "embedding_model": runtime_config.knowledge.embedding_model,
+                "reranker_model": runtime_config.knowledge.reranker_model,
+                "reranker_loaded": getattr(ranker, "model", None) is not None,
+                "reranker_completed_calls": getattr(ranker, "completed_calls", 0),
+                "candidate_policy": runtime_config.knowledge.candidate_policy,
+            },
         }
 
     @app.get("/api/runtime")

@@ -48,3 +48,31 @@ def test_duplicate_chunks_and_oversized_descriptions_rejected():
         DocumentContextIndex(data)
     with pytest.raises(ValueError, match='invalid retrieval'):
         DocumentContextIndex(context_cache('原文。', 'x'*181))
+
+
+def test_factory_missing_optional_cache_uses_original_index(tmp_path, monkeypatch, caplog):
+    pytest.importorskip('filelock')
+    from deepresearch.knowledge import create_store
+    from deepresearch.knowledge import milvus_store
+    from deepresearch.memory_system.embeddings import HashEmbeddingProvider
+    from deepresearch.runtime_config import KnowledgeRuntimeConfig
+    monkeypatch.setattr(milvus_store, 'MilvusStore', lambda **kwargs: kwargs)
+    config = KnowledgeRuntimeConfig(document_context_path=str(tmp_path/'not-published.json'))
+    result = create_store(config, provider=HashEmbeddingProvider())
+    assert result['document_context'] is None
+    assert 'using original-text indexing' in caplog.text
+
+
+def test_factory_does_not_hide_invalid_description_cache(tmp_path, monkeypatch):
+    pytest.importorskip('filelock')
+    from deepresearch.knowledge import create_store
+    from deepresearch.knowledge import milvus_store
+    from deepresearch.memory_system.embeddings import HashEmbeddingProvider
+    from deepresearch.runtime_config import KnowledgeRuntimeConfig
+    def forbidden(**kwargs):
+        pytest.fail('invalid descriptions must fail before opening storage')
+    monkeypatch.setattr(milvus_store, 'MilvusStore', forbidden)
+    path = tmp_path/'invalid.json'; path.write_text('{invalid JSON')
+    with pytest.raises(json.JSONDecodeError):
+        create_store(KnowledgeRuntimeConfig(document_context_path=str(path)),
+                     provider=HashEmbeddingProvider())

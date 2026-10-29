@@ -75,6 +75,10 @@ def test_worker_local_library_enters_existing_ledger(tmp_path):
     config = load_runtime_config()
     config.knowledge.enabled = True
     config.knowledge.backend = "sqlite"
+    # SQLite fixtures must not inherit Milvus-only deployment options.
+    config.knowledge.document_context_path = None
+    config.knowledge.candidate_policy = "rrf"
+    config.knowledge.reranker_model = None
     config.knowledge.path = str(tmp_path / 'knowledge.sqlite')
     worker = ResearchWorker(FakeLLM(), None, config)
     worker.knowledge = store(tmp_path)
@@ -104,6 +108,10 @@ async def test_full_research_uses_imported_snapshot_and_rag_trace(tmp_path, monk
     config = load_runtime_config()
     config.knowledge.enabled = True
     config.knowledge.backend = "sqlite"
+    # SQLite fixtures must not inherit Milvus-only deployment options.
+    config.knowledge.document_context_path = None
+    config.knowledge.candidate_policy = "rrf"
+    config.knowledge.reranker_model = None
     config.mcp.enabled = False
     config.memory.enabled = False
     async with ResearchService.in_memory(llm=FakeLLM(), search_backend=FakeSearchBackend(),
@@ -239,6 +247,10 @@ async def test_precontext_arrives_before_strategy_and_network(tmp_path, monkeypa
     config = load_runtime_config()
     config.knowledge.enabled = True
     config.knowledge.backend = "sqlite"
+    # SQLite fixtures must not inherit Milvus-only deployment options.
+    config.knowledge.document_context_path = None
+    config.knowledge.candidate_policy = "rrf"
+    config.knowledge.reranker_model = None
     config.mcp.enabled = False
     config.memory.enabled = False
     async with ResearchService.in_memory(llm=llm,search_backend=ObservingSearch(),fetcher=FakeFetcher(),
@@ -265,6 +277,10 @@ async def test_precontext_failure_falls_back_before_strategy(tmp_path, monkeypat
     config = load_runtime_config()
     config.knowledge.enabled = True
     config.knowledge.backend = "sqlite"
+    # SQLite fixtures must not inherit Milvus-only deployment options.
+    config.knowledge.document_context_path = None
+    config.knowledge.candidate_policy = "rrf"
+    config.knowledge.reranker_model = None
     config.knowledge.path = str(tmp_path/'empty.sqlite')
     config.mcp.enabled = False
     config.memory.enabled = False
@@ -302,6 +318,10 @@ async def test_parallel_precontext_does_not_share_task_state(tmp_path):
     config = load_runtime_config()
     config.knowledge.enabled = True
     config.knowledge.backend = "sqlite"
+    # SQLite fixtures must not inherit Milvus-only deployment options.
+    config.knowledge.document_context_path = None
+    config.knowledge.candidate_policy = "rrf"
+    config.knowledge.reranker_model = None
     config.knowledge.path = str(tmp_path/'unused.sqlite')
     config.knowledge.top_k = 1
     worker = ResearchWorker(FakeLLM(),None,config)

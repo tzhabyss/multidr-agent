@@ -405,7 +405,7 @@ def test_stdio_environment_reads_secrets_relative_to_config(monkeypatch, tmp_pat
             "servers": {
                 "deepseek": {
                     "command": "npx",
-                    "env": {"WEBSEARCH_MODEL": "deepseek-v4-flash"},
+                    "env": {"WEBSEARCH_MODEL": "deepseek-flash"},
                     "env_files": {"DEEPSEEK_API_KEY": "../deepseek-key.txt"},
                 }
             },
@@ -418,7 +418,7 @@ def test_stdio_environment_reads_secrets_relative_to_config(monkeypatch, tmp_pat
     )
 
     assert environment["DEEPSEEK_API_KEY"] == "test-secret"
-    assert environment["WEBSEARCH_MODEL"] == "deepseek-v4-flash"
+    assert environment["WEBSEARCH_MODEL"] == "deepseek-flash"
 
 
 def test_streamable_http_headers_expand_secret_from_env_file(tmp_path):
